@@ -19,7 +19,7 @@ import json
 try:
     API_KEY = st.secrets["API_KEY"]
 except:
-    API_KEY = ""  # 未配置时为空，会提示错误
+    API_KEY = "sk-920a5247f801457baae1d449600a7f3d"  # 未配置时为空，会提示错误
 # ================================
 
 # 支持的文件类型
