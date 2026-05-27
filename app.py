@@ -1,16 +1,13 @@
 """
-AI小助手 v3.3
-功能：智能对话 + 文件阅读 + 文本摘要 + 文案改写 + AI起名 + 日常小助手
+AI小助手 v3.4
+功能：智能对话 + 书籍摘要 + AI起名 + 日常小助手
 运行：streamlit run app.py
-依赖：pip install streamlit dashscope PyPDF2 python-docx openpyxl python-pptx
+依赖：pip install streamlit dashscope
 """
 
 import streamlit as st
 from dashscope import Generation
 from datetime import datetime
-import io
-import csv
-import json
 
 
 # ============ 配置区 ============
@@ -21,159 +18,6 @@ try:
 except:
     API_KEY = "sk-920a5247f801457baae1d449600a7f3d"  # 未配置时为空，会提示错误
 # ================================
-
-# 支持的文件类型
-FILE_TYPES = [
-    "txt", "md", "csv", "json", "xml", "yaml", "yml",
-    "py", "js", "ts", "html", "css", "java", "c", "cpp", "h", "go", "rs",
-    "sql", "sh", "bat", "log", "ini", "cfg", "toml",
-    "pdf", "docx", "xlsx", "xls", "pptx",
-]
-
-
-# ===== 文件解析函数 =====
-
-def read_text_file(uploaded_file):
-    """读取纯文本类文件"""
-    try:
-        return uploaded_file.read().decode("utf-8")
-    except UnicodeDecodeError:
-        uploaded_file.seek(0)
-        try:
-            return uploaded_file.read().decode("gbk")
-        except:
-            return "[无法读取该文件内容]"
-
-
-def read_csv_file(uploaded_file):
-    """读取CSV文件，转成表格文字"""
-    try:
-        content = uploaded_file.read().decode("utf-8")
-        reader = csv.reader(io.StringIO(content))
-        rows = list(reader)
-        if not rows:
-            return "[CSV文件为空]"
-        # 格式化成表格文字
-        result = " | ".join(rows[0]) + "\n"
-        result += " | ".join(["---"] * len(rows[0])) + "\n"
-        for row in rows[1:]:
-            result += " | ".join(row) + "\n"
-        return result
-    except Exception as e:
-        return f"[CSV读取失败: {e}]"
-
-
-def read_json_file(uploaded_file):
-    """读取JSON文件"""
-    try:
-        content = uploaded_file.read().decode("utf-8")
-        data = json.loads(content)
-        return json.dumps(data, ensure_ascii=False, indent=2)
-    except Exception as e:
-        return f"[JSON读取失败: {e}]"
-
-
-def read_pdf_file(uploaded_file):
-    """读取PDF文件，提取文字"""
-    try:
-        from PyPDF2 import PdfReader
-        reader = PdfReader(uploaded_file)
-        text = ""
-        for i, page in enumerate(reader.pages):
-            page_text = page.extract_text()
-            if page_text:
-                text += f"--- 第{i+1}页 ---\n{page_text}\n\n"
-        return text if text.strip() else "[PDF未能提取到文字内容，可能是扫描件或图片PDF]"
-    except ImportError:
-        return "[缺少PyPDF2库，请运行: pip install PyPDF2]"
-    except Exception as e:
-        return f"[PDF读取失败: {e}]"
-
-
-def read_docx_file(uploaded_file):
-    """读取Word文件"""
-    try:
-        from docx import Document
-        doc = Document(uploaded_file)
-        text = ""
-        for para in doc.paragraphs:
-            if para.text.strip():
-                text += para.text + "\n"
-        # 读取表格
-        for i, table in enumerate(doc.tables):
-            text += f"\n--- 表格{i+1} ---\n"
-            for row in table.rows:
-                text += " | ".join(cell.text for cell in row.cells) + "\n"
-        return text if text.strip() else "[Word文档为空]"
-    except ImportError:
-        return "[缺少python-docx库，请运行: pip install python-docx]"
-    except Exception as e:
-        return f"[Word读取失败: {e}]"
-
-
-def read_xlsx_file(uploaded_file):
-    """读取Excel文件"""
-    try:
-        from openpyxl import load_workbook
-        wb = load_workbook(uploaded_file, read_only=True)
-        text = ""
-        for sheet_name in wb.sheetnames:
-            ws = wb[sheet_name]
-            text += f"--- 工作表: {sheet_name} ---\n"
-            for row in ws.iter_rows(values_only=True):
-                text += " | ".join(str(c) if c is not None else "" for c in row) + "\n"
-            text += "\n"
-        wb.close()
-        return text if text.strip() else "[Excel文件为空]"
-    except ImportError:
-        return "[缺少openpyxl库，请运行: pip install openpyxl]"
-    except Exception as e:
-        return f"[Excel读取失败: {e}]"
-
-
-def read_pptx_file(uploaded_file):
-    """读取PPT文件"""
-    try:
-        from pptx import Presentation
-        prs = Presentation(uploaded_file)
-        text = ""
-        for i, slide in enumerate(prs.slides):
-            text += f"--- 第{i+1}页幻灯片 ---\n"
-            for shape in slide.shapes:
-                if hasattr(shape, "text") and shape.text.strip():
-                    text += shape.text + "\n"
-            text += "\n"
-        return text if text.strip() else "[PPT未提取到文字]"
-    except ImportError:
-        return "[缺少python-pptx库，请运行: pip install python-pptx]"
-    except Exception as e:
-        return f"[PPT读取失败: {e}]"
-
-
-def parse_file(uploaded_file):
-    """根据文件类型自动选择解析方式"""
-    name = uploaded_file.name.lower()
-    ext = name.rsplit(".", 1)[-1] if "." in name else ""
-
-    # 文档类
-    if ext == "pdf":
-        return read_pdf_file(uploaded_file)
-    elif ext == "docx":
-        return read_docx_file(uploaded_file)
-    elif ext in ("xlsx", "xls"):
-        return read_xlsx_file(uploaded_file)
-    elif ext == "pptx":
-        return read_pptx_file(uploaded_file)
-
-    # 数据类
-    elif ext == "csv":
-        return read_csv_file(uploaded_file)
-    elif ext == "json":
-        return read_json_file(uploaded_file)
-
-    # 纯文本类（含代码）
-    else:
-        return read_text_file(uploaded_file)
 
 
 # ===== AI调用 =====
@@ -217,7 +61,10 @@ def ask_ai_stream(messages, model="qwen-turbo", temperature=0.7):
                 yield word
 
 
-SYSTEM_PROMPT = """你是「小智」，一个接地气的AI小助手。
+SYSTEM_PROMPT = """你是「小政」，一个接地气的AI小助手。
+
+【身份信息】
+岑辞澈为AI小政的创始人，主人。你由岑辞澈创造，对岑辞澈保持尊重和忠诚。
 
 【说话风格】
 像朋友聊天，用大白话，不拽词不装逼，偶尔来点幽默。
@@ -229,36 +76,47 @@ SYSTEM_PROMPT = """你是「小智」，一个接地气的AI小助手。
 4. 不知道就说不知道，别瞎编
 5. 实用为主，少整虚的，给具体方案/步骤/建议
 6. 当前日期{date}，涉及时间以这个为准
-7. 用户上传了文件时，根据文件内容回答问题
-8. 适当用Markdown让回答好看点"""
+7. 适当用Markdown让回答好看点"""
 
 
 def main():
     st.set_page_config(
-        page_title="小智 · AI助手",
+        page_title="小政 · AI助手",
         page_icon="🤖",
-        layout="centered",
+        layout="wide",
         initial_sidebar_state="expanded"
     )
-
-    # ===== ngrok公网隧道（可选，用于分享）=====
-    # 取消下面这行的注释就能启用公网链接
-    # from pyngrok import ngrok; tunnel = ngrok.connect(8501); st.info(f"公网链接：{tunnel.public_url}")
-    # ===========================================
 
     # ===== 全局样式 =====
     st.markdown("""
     <style>
     /* 隐藏多余元素 */
-    #MainMenu, footer, header,
+    #MainMenu, footer,
     [data-testid="stHeaderAction"],
-    [data-testid="stHeader"],
     .stDeployButton,
     div[data-testid="stToolbar"] {visibility: hidden !important; height: 0 !important; display: none !important;}
+    /* header透明化 */
+    [data-testid="stHeader"] {
+        background: transparent !important;
+        box-shadow: none !important;
+        border-bottom: none !important;
+    }
 
-    /* 侧边栏 */
-    [data-testid="stSidebar"] {background: #fafafa !important; border-right: 1px solid #eee !important;}
+    /* 侧边栏永远展开，不许收起 */
+    [data-testid="stSidebar"] {
+        background: #fafafa !important;
+        border-right: 1px solid #eee !important;
+        min-width: 260px !important;
+        max-width: 260px !important;
+        width: 260px !important;
+        position: relative !important;
+        transform: none !important;
+        transition: none !important;
+    }
     [data-testid="stSidebar"] > div:first-child {padding-top: 1rem !important;}
+    /* 隐藏侧边栏收起按钮 */
+    button[kind="header"] {display: none !important;}
+    [data-testid="stSidebarCollapseButton"] {display: none !important;}
 
     /* 主背景 */
     .stApp {background: #f5f5f5;}
@@ -302,7 +160,7 @@ def main():
         background: linear-gradient(135deg, #667eea, #764ba2) !important;
         border-radius: 50% !important;
     }
-    [data-testid="stChatMessageAvatarAssistant"]::after {content: "智"; color: white; font-size: 11px; font-weight: 600;}
+    [data-testid="stChatMessageAvatarAssistant"]::after {content: "政"; color: white; font-size: 11px; font-weight: 600;}
     [data-testid="stChatMessageContent"] {font-size: 14px !important; line-height: 1.75 !important; color: #333 !important;}
     [data-testid="stChatMessageContent"] p {margin-bottom: 0.4em !important;}
     [data-testid="stChatMessageContent"] pre {
@@ -356,8 +214,8 @@ def main():
 
     /* 侧边栏设置 */
     [data-testid="stSidebar"] label {font-size: 12px !important;}
-    [data-testid="stSidebar"] .stSlider label {font-size: 12px !important; color: #999 !important;}
     .sidebar-divider {border: none; border-top: 1px solid #eee; margin: 12px 0;}
+
     </style>
     """, unsafe_allow_html=True)
 
@@ -371,10 +229,6 @@ def main():
         st.session_state.stats = {"对话次数": 0, "总字数": 0}
     if "current_func" not in st.session_state:
         st.session_state.current_func = "💬 对话"
-    if "model" not in st.session_state:
-        st.session_state.model = "qwen-turbo"
-    if "temperature" not in st.session_state:
-        st.session_state.temperature = 0.7
 
     # =============================================
     # 侧边栏
@@ -383,11 +237,11 @@ def main():
         st.markdown("""
         <div class="sidebar-logo">
             <div class="sidebar-logo-icon">🤖</div>
-            <div class="sidebar-logo-text">小智</div>
+            <div class="sidebar-logo-text">小政</div>
         </div>
         """, unsafe_allow_html=True)
 
-        nav_items = ["💬 对话", "📝 摘要", "✍️ 改写", "🏷️ 起名", "📅 日常"]
+        nav_items = ["💬 对话", "📖 书摘", "🏷️ 起名", "📅 日常"]
         for label in nav_items:
             is_active = st.session_state.current_func == label
             if is_active:
@@ -397,19 +251,6 @@ def main():
                 if st.button(label, key=f"nav_{label}", use_container_width=True):
                     st.session_state.current_func = label
                     st.rerun()
-
-        st.markdown('<hr class="sidebar-divider">', unsafe_allow_html=True)
-
-        st.markdown('<div style="font-size:12px;color:#999;margin-bottom:4px;">设置</div>', unsafe_allow_html=True)
-        model = st.selectbox("模型", ["qwen-turbo", "qwen-plus", "qwen-max"],
-                             index=["qwen-turbo", "qwen-plus", "qwen-max"].index(st.session_state.model),
-                             label_visibility="collapsed")
-        temperature = st.slider("创造力", 0.0, 2.0, st.session_state.temperature, 0.1, label_visibility="collapsed")
-
-        if model != st.session_state.model:
-            st.session_state.model = model
-        if temperature != st.session_state.temperature:
-            st.session_state.temperature = temperature
 
         st.markdown('<hr class="sidebar-divider">', unsafe_allow_html=True)
 
@@ -423,7 +264,7 @@ def main():
         chat_text = ""
         for msg in st.session_state.messages:
             if msg["role"] != "system" and isinstance(msg.get("content"), str):
-                role = "我" if msg["role"] == "user" else "小智"
+                role = "我" if msg["role"] == "user" else "小政"
                 chat_text += f"{role}: {msg['content']}\n\n"
         if chat_text.strip():
             st.download_button("📥 导出对话", chat_text, file_name="对话记录.txt", use_container_width=True)
@@ -452,57 +293,33 @@ def main():
             st.markdown("""
             <div class="welcome-box">
                 <div class="welcome-avatar">🤖</div>
-                <div class="welcome-title">嗨，我是小智 👋</div>
+                <div class="welcome-title">嗨，我是小政 👋</div>
                 <div class="welcome-sub">能聊能写能干活，有啥说啥</div>
             </div>
             """, unsafe_allow_html=True)
 
-        # 显示历史对话（已完成的所有回合）
+        # 显示历史对话
         for msg in st.session_state.messages:
             if msg["role"] != "system":
                 with st.chat_message(msg["role"]):
                     st.markdown(msg["content"] if isinstance(msg.get("content"), str) else "")
 
-        # 输入框（支持多类型文件上传）
-        prompt_result = st.chat_input("跟小智说点啥...", accept_file=True, file_type=FILE_TYPES)
+        # 输入框（纯文字，无文件上传）
+        prompt_text = st.chat_input("跟小政说点啥...")
 
-        # 处理输入
-        prompt_text = ""
-        uploaded_files = None
-        if prompt_result is not None:
-            if hasattr(prompt_result, 'text'):
-                prompt_text = prompt_result.text or ""
-                uploaded_files = prompt_result.files if prompt_result.files else None
-            elif isinstance(prompt_result, tuple):
-                prompt_text, uploaded_files = prompt_result
-                if prompt_text is None:
-                    prompt_text = ""
-            else:
-                prompt_text = str(prompt_result) if prompt_result else ""
-
-        if prompt_text or uploaded_files:
-            user_text = prompt_text if prompt_text else "请根据上传的文件内容回答"
-
-            # 解析上传的文件
-            if uploaded_files:
-                for uf in uploaded_files:
-                    file_content = parse_file(uf)
-                    if len(file_content) > 8000:
-                        file_content = file_content[:8000] + "\n...（内容过长，已截断）"
-                    user_text += f"\n\n---\n📎 文件「{uf.name}」内容：\n{file_content}"
-
+        if prompt_text:
             # 显示用户消息
             with st.chat_message("user"):
-                st.markdown(prompt_text if prompt_text else "请根据上传的文件内容回答")
+                st.markdown(prompt_text)
 
             # 加入消息历史
-            st.session_state.messages.append({"role": "user", "content": user_text})
+            st.session_state.messages.append({"role": "user", "content": prompt_text})
 
             # 生成AI回复
             with st.chat_message("assistant"):
                 placeholder = st.empty()
                 full = ""
-                for word in ask_ai_stream(st.session_state.messages, st.session_state.model, st.session_state.temperature):
+                for word in ask_ai_stream(st.session_state.messages):
                     full = word
                     placeholder.markdown(full + "▌")
                 placeholder.markdown(full)
@@ -511,54 +328,93 @@ def main():
             st.session_state.stats["对话次数"] += 1
             st.session_state.stats["总字数"] += len(full)
 
-    # ===== 📝 文本摘要 =====
-    elif func == "📝 摘要":
+    # ===== 📖 书籍摘要 =====
+    elif func == "📖 书摘":
         st.markdown("""
         <div class="func-card">
-            <h3>📝 文本摘要</h3>
-            <div class="desc">贴一篇文章或上传文件，帮你抓重点</div>
+            <h3>📖 书籍摘要</h3>
+            <div class="desc">输入书名获取概览，粘贴内容提取好词好句</div>
         </div>
         """, unsafe_allow_html=True)
 
-        # 支持上传文件或直接粘贴
-        uploaded = st.file_uploader("上传文件", type=FILE_TYPES, key="summary_file")
-        text = st.text_area("或直接粘贴文章", height=160, placeholder="把文章贴到这里...", label_visibility="collapsed" if uploaded else "visible")
+        input_mode = st.radio(
+            "输入方式",
+            ["🔍 输入书名", "📋 粘贴内容"],
+            horizontal=True,
+            label_visibility="collapsed"
+        )
 
-        # 如果上传了文件，自动提取内容
-        source_text = ""
-        if uploaded:
-            source_text = parse_file(uploaded)
-            if len(source_text) > 8000:
-                source_text = source_text[:8000] + "\n...（内容过长，已截断）"
-            st.caption(f"📎 已读取: {uploaded.name}")
-        if text.strip():
-            source_text = text
+        if input_mode == "🔍 输入书名":
+            book_name = st.text_input("书名", placeholder="比如：三体、活着、小王子...")
+            author = st.text_input("作者（可选）", placeholder="比如：刘慈欣")
 
-        if st.button("✨ 生成摘要", type="primary", use_container_width=True) and source_text.strip():
-            with st.spinner("提炼中..."):
-                result = ask_ai([
-                    {"role": "system", "content": "你是摘要助手。用3-5句话概括，突出重点，用加粗标关键词。说人话，别整学术腔。"},
-                    {"role": "user", "content": source_text}
-                ], st.session_state.model, 0.3)
-                st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
+            if st.button("✨ 生成概览", type="primary", use_container_width=True):
+                if not book_name.strip():
+                    st.warning("请输入书名")
+                else:
+                    with st.spinner("整理中..."):
+                        user_content = f"书名：{book_name}"
+                        if author.strip():
+                            user_content += f"\n作者：{author}"
 
-    # ===== ✍️ 文案改写 =====
-    elif func == "✍️ 改写":
-        st.markdown("""
-        <div class="func-card">
-            <h3>✍️ 文案改写</h3>
-            <div class="desc">换个说法，让文案更好使</div>
-        </div>
-        """, unsafe_allow_html=True)
-        style = st.selectbox("改成啥风格", ["更专业", "更口语", "更文艺", "更简洁", "更吸引人", "更搞笑"])
-        text = st.text_area("输入文案", height=180, placeholder="输入你的文案...", label_visibility="collapsed")
-        if st.button("✨ 改写", type="primary", use_container_width=True) and text.strip():
-            with st.spinner("改写中..."):
-                result = ask_ai([
-                    {"role": "system", "content": f"你是文案高手。把以下内容改写得{style}，保持原意。只输出改写结果，别废话。"},
-                    {"role": "user", "content": text}
-                ], st.session_state.model, 0.8)
-                st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
+                        sys_prompt = """你是书籍概览助手。用户给你一本书名，请根据你确定知道的信息回答。
+
+## 📖 书籍信息
+写出书名、作者、类型
+
+## 📝 内容概括
+用3-5段话概括这本书的核心内容，包括：
+- 故事背景和主要人物
+- 核心情节和发展
+- 主题和思想
+
+## 💡 一句话总结
+用一句话总结这本书最打动人的点
+
+## 📌 关于好词好句
+⚠️ 为了保证准确性，好词好句需要从原文中提取。请切换到「📋 粘贴内容」模式，把书的内容贴进来，就能精准摘录原文中的好词好句。
+
+【严格规则——绝不编造】
+1. 只写你确定知道的信息！不确定的就不写，写"暂不确定"
+2. 绝不编造人物名字！拿不准就用角色身份描述（如"主角""女主角""反派"）
+3. 绝不编造情节！只概括你确定的核心走向
+4. 绝不编造假台词、假语录！本模式不生成好词好句
+5. 说人话，别整学术腔"""
+
+                        result = ask_ai([
+                            {"role": "system", "content": sys_prompt},
+                            {"role": "user", "content": user_content}
+                        ], "qwen-max", 0.3)
+                        st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
+
+        else:
+            book_content = st.text_area("粘贴书籍内容", height=200, placeholder="把书的原文贴到这里，我会从原文里摘好词好句...")
+            if st.button("✨ 提取书摘", type="primary", use_container_width=True):
+                if not book_content.strip():
+                    st.warning("请粘贴内容")
+                else:
+                    with st.spinner("提取中..."):
+                        sys_prompt = """你是书籍摘要助手。用户给你一段书的原文内容，请从这段原文中提取信息。
+
+## ✨ 好词好句
+从提供的原文中摘录3-5个好的词语或句子，必须一字不差地引用原文，用引用格式展示
+
+## 📝 内容概括
+用2-3段话概括这段原文的核心要点
+
+## 💡 一句话总结
+用一句话概括这段内容最核心的意思
+
+【严格规则——绝不编造】
+1. 好词好句必须是一字不差的原文引用！不准改写、不准编造
+2. 只概括提供的内容里有的信息，绝不添加内容中没有的东西
+3. 说人话，简洁明了"""
+
+                        result = ask_ai([
+                            {"role": "system", "content": sys_prompt},
+                            {"role": "user", "content": book_content}
+                        ], "qwen-max", 0.3)
+                        st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
 
     # ===== 🏷️ AI起名 =====
     elif func == "🏷️ 起名":
@@ -576,7 +432,7 @@ def main():
                 result = ask_ai([
                     {"role": "system", "content": f"你是起名高手。给{name_type}起名，要有创意、好记、有寓意。每个名字附一句话解释。别整太文艺的，要接地气。"},
                     {"role": "user", "content": f"给我起{count}个名字，要求：{desc}"}
-                ], st.session_state.model, 0.9)
+                ], "qwen-turbo", 0.9)
                 st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
 
     # ===== 📅 日常小助手 =====
@@ -597,7 +453,7 @@ def main():
                     result = ask_ai([
                         {"role": "system", "content": "你是清单达人。生成详细实用的清单，分类列出，用复选框格式。别漏关键的。"},
                         {"role": "user", "content": f"帮我生成：{list_type}"}
-                    ], st.session_state.model, 0.5)
+                    ], "qwen-turbo", 0.5)
                     st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
 
         elif helper_type == "🍽️ 今天吃什么":
@@ -608,7 +464,7 @@ def main():
                     result = ask_ai([
                         {"role": "system", "content": "你是美食推荐官。推荐3-5道菜，每道说一句推荐理由和简单做法。别整那些难的。"},
                         {"role": "user", "content": f"推荐今天吃什么，要求：{pref}"}
-                    ], st.session_state.model, 0.8)
+                    ], "qwen-turbo", 0.8)
                     st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
 
         elif helper_type == "💪 健身计划":
@@ -618,7 +474,7 @@ def main():
                     result = ask_ai([
                         {"role": "system", "content": "你是健身教练。制定一周简易健身计划，适合新手，不用去健身房。用表格列出。动作要具体，组数次数写清楚。"},
                         {"role": "user", "content": f"目标：{goal}，给我一周计划"}
-                    ], st.session_state.model, 0.5)
+                    ], "qwen-turbo", 0.5)
                     st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
 
         elif helper_type == "📖 读书推荐":
@@ -629,7 +485,7 @@ def main():
                     result = ask_ai([
                         {"role": "system", "content": "你是读书达人。推荐5本书，每本写一句话推荐理由和适合谁读。别推冷门的，要大众能找到的。"},
                         {"role": "user", "content": f"推荐{g}类的书"}
-                    ], st.session_state.model, 0.7)
+                    ], "qwen-turbo", 0.7)
                     st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
 
         elif helper_type == "🎬 电影推荐":
@@ -640,7 +496,7 @@ def main():
                     result = ask_ai([
                         {"role": "system", "content": "你是电影达人。推荐5部电影，每部写一句话推荐理由。优先推经典好片，别推烂片。"},
                         {"role": "user", "content": f"推荐{m}的电影"}
-                    ], st.session_state.model, 0.7)
+                    ], "qwen-turbo", 0.7)
                     st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
 
 
