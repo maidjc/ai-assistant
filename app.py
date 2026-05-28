@@ -334,88 +334,78 @@ def main():
             st.session_state.stats["对话次数"] += 1
             st.session_state.stats["总字数"] += len(full)
 
-    # ===== 📖 书籍摘要 =====
+    # ===== 📖 书籍摘要（改进版：概述 + 人物分析） =====
     elif func == "📖 书摘":
         st.markdown("""
         <div class="func-card">
             <h3>📖 书籍摘要</h3>
-            <div class="desc">输入书名获取概览，粘贴内容提取好词好句</div>
+            <div class="desc">提供书籍内容的概述或人物分析。支持两种模式：<br>
+            • <strong>🔍 输入书名</strong>：基于已有知识生成概述和人物分析（适合知名书籍）<br>
+            • <strong>📋 粘贴内容</strong>：基于你提供的原文片段分析（适合陌生或自创内容）</div>
         </div>
         """, unsafe_allow_html=True)
 
         input_mode = st.radio(
-            "输入方式",
+            "选择模式",
             ["🔍 输入书名", "📋 粘贴内容"],
             horizontal=True,
             label_visibility="collapsed"
         )
 
         if input_mode == "🔍 输入书名":
-            book_name = st.text_input("书名", placeholder="比如：三体、活着、小王子...")
-            author = st.text_input("作者（可选）", placeholder="比如：刘慈欣")
+            book_name = st.text_input("书名", placeholder="例如：三体、活着、百年孤独...")
+            author = st.text_input("作者（可选）", placeholder="例如：刘慈欣、余华")
 
-            if st.button("✨ 生成概览", type="primary", use_container_width=True):
+            if st.button("✨ 生成概述与人物分析", type="primary", use_container_width=True):
                 if not book_name.strip():
                     st.warning("请输入书名")
                 else:
-                    with st.spinner("整理中..."):
+                    with st.spinner("正在整理书中信息..."):
                         user_content = f"书名：{book_name}"
                         if author.strip():
                             user_content += f"\n作者：{author}"
 
-                        sys_prompt = """你是书籍概览助手。用户给你一本书名，请根据你确定知道的信息回答。
+                        sys_prompt = """你是书籍分析助手。根据你确定知道的信息，为用户提供该书的【内容概述】和【主要人物分析】。
 
-## 📖 书籍信息
-写出书名、作者、类型
+## 📝 内容概述
+用2-4段话概括这本书的核心内容（背景、主要情节、主题思想）。如果这本书你不太熟悉，就写“本书未在数据库中，请切换到「粘贴内容」模式进行分析”。
 
-## 📝 内容概括
-用3-5段话概括这本书的核心内容，包括：
-- 故事背景和主要人物
-- 核心情节和发展
-- 主题和思想
+## 👥 人物分析
+列出书中2-5个主要人物，每个用1-2句话分析其性格、作用或成长弧。如果书中人物很少或没有明确人物，可写“本书主要不是以人物为中心”或基于已知信息分析。
 
-## 💡 一句话总结
-用一句话总结这本书最打动人的点
-
-## 📌 关于好词好句
-⚠️ 为了保证准确性，好词好句需要从原文中提取。请切换到「📋 粘贴内容」模式，把书的内容贴进来，就能精准摘录原文中的好词好句。
-
-【严格规则——绝不编造】
-1. 只写你确定知道的信息！不确定的就不写，写"暂不确定"
-2. 绝不编造人物名字！拿不准就用角色身份描述（如"主角""女主角""反派"）
-3. 绝不编造情节！只概括你确定的核心走向
-4. 绝不编造假台词、假语录！本模式不生成好词好句
-5. 说人话，别整学术腔"""
-
+【严格规则】
+1. 只写你确定知道的内容！不确定就写“暂不确定”
+2. 绝不编造人物名字、情节或语录
+3. 说人话，别整学术腔
+4. 如果用户提供了作者，可以适当结合"""
                         result = ask_ai([
                             {"role": "system", "content": sys_prompt},
                             {"role": "user", "content": user_content}
                         ], "glm-4-flash", 0.3)
                         st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
 
-        else:
-            book_content = st.text_area("粘贴书籍内容", height=200, placeholder="把书的原文贴到这里，我会从原文里摘好词好句...")
-            if st.button("✨ 提取书摘", type="primary", use_container_width=True):
+        else:  # 粘贴内容模式
+            book_content = st.text_area("粘贴书籍内容片段", height=250, 
+                                        placeholder="请把书的原文或较长的内容介绍粘贴到这里，我会基于你提供的文字进行分析。\n\n至少需要几百字才能分析出人物。")
+            if st.button("✨ 分析此片段", type="primary", use_container_width=True):
                 if not book_content.strip():
                     st.warning("请粘贴内容")
+                elif len(book_content.strip()) < 100:
+                    st.warning("内容太短，建议提供更多文字，以便准确分析概述和人物。")
                 else:
-                    with st.spinner("提取中..."):
-                        sys_prompt = """你是书籍摘要助手。用户给你一段书的原文内容，请从这段原文中提取信息。
+                    with st.spinner("分析中..."):
+                        sys_prompt = """你是书籍分析助手。用户提供了一段书籍内容（可能是原文或内容介绍），请严格按照以下格式输出：
 
-## ✨ 好词好句
-从提供的原文中摘录3-5个好的词语或句子，必须一字不差地引用原文，用引用格式展示
+## 📝 内容概述
+根据提供的文字，概括这段内容的核心情节、氛围或主题（2-3段）。
 
-## 📝 内容概括
-用2-3段话概括这段原文的核心要点
+## 👥 人物分析
+从这段文字中提取出现的人物，分析他们的特点、关系或作用。如果只出现1-2个角色就分析这些；如果没有明确人物，请说明“从这段内容中未发现具体人物”。
 
-## 💡 一句话总结
-用一句话概括这段内容最核心的意思
-
-【严格规则——绝不编造】
-1. 好词好句必须是一字不差的原文引用！不准改写、不准编造
-2. 只概括提供的内容里有的信息，绝不添加内容中没有的东西
-3. 说人话，简洁明了"""
-
+【严格规则】
+1. 只能基于用户提供的内容进行分析，绝不要添加内容中没有的信息
+2. 不要编造人物名字或情节
+3. 输出要清晰、简洁、口语化"""
                         result = ask_ai([
                             {"role": "system", "content": sys_prompt},
                             {"role": "user", "content": book_content}
