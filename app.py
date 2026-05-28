@@ -1,12 +1,12 @@
 """
-AI小助手 v3.4
+AI小助手 v3.5
 功能：智能对话 + 书籍摘要 + AI起名 + 日常小助手
 运行：streamlit run app.py
-依赖：pip install streamlit dashscope
+依赖：pip install streamlit openai
 """
 
 import streamlit as st
-from dashscope import Generation
+from openai import OpenAI
 from datetime import datetime
 
 
@@ -16,8 +16,16 @@ from datetime import datetime
 try:
     API_KEY = st.secrets["API_KEY"]
 except:
-    API_KEY = "sk-920a5247f801457baae1d449600a7f3d"  # 未配置时为空，会提示错误
+    API_KEY = ""  # 未配置时为空，会提示错误
 # ================================
+
+# DeepSeek 客户端
+_client = None
+def get_client():
+    global _client
+    if _client is None and API_KEY:
+        _client = OpenAI(api_key=API_KEY, base_url="https://api.deepseek.com")
+    return _client
 
 
 # ===== AI调用 =====
@@ -30,35 +38,33 @@ def check_api_key():
     return True
 
 
-def ask_ai(messages, model="qwen-turbo", temperature=0.7):
-    """调用千问大模型，返回完整回复"""
-    if not API_KEY:
+def ask_ai(messages, model="deepseek-chat", temperature=0.7):
+    """调用DeepSeek大模型，返回完整回复"""
+    client = get_client()
+    if not client:
         return "⚠️ API Key 未配置，请先配置后再使用。"
     full = ""
-    for chunk in Generation.call(
-        model=model, api_key=API_KEY, messages=messages,
-        stream=True, temperature=temperature, result_format="message"
+    for chunk in client.chat.completions.create(
+        model=model, messages=messages,
+        stream=True, temperature=temperature
     ):
-        if chunk.output and chunk.output.choices:
-            word = chunk.output.choices[0]['message']['content']
-            if word:
-                full = word
+        if chunk.choices and chunk.choices[0].delta.content:
+            full += chunk.choices[0].delta.content
     return full
 
 
-def ask_ai_stream(messages, model="qwen-turbo", temperature=0.7):
-    """调用千问大模型，流式返回（聊天用）"""
-    if not API_KEY:
+def ask_ai_stream(messages, model="deepseek-chat", temperature=0.7):
+    """调用DeepSeek大模型，流式返回（聊天用）"""
+    client = get_client()
+    if not client:
         yield "⚠️ API Key 未配置，请先配置后再使用。"
         return
-    for chunk in Generation.call(
-        model=model, api_key=API_KEY, messages=messages,
-        stream=True, temperature=temperature, result_format="message"
+    for chunk in client.chat.completions.create(
+        model=model, messages=messages,
+        stream=True, temperature=temperature
     ):
-        if chunk.output and chunk.output.choices:
-            word = chunk.output.choices[0]['message']['content']
-            if word:
-                yield word
+        if chunk.choices and chunk.choices[0].delta.content:
+            yield chunk.choices[0].delta.content
 
 
 SYSTEM_PROMPT = """你是「小政」，一个接地气的AI小助手。
@@ -384,7 +390,7 @@ def main():
                         result = ask_ai([
                             {"role": "system", "content": sys_prompt},
                             {"role": "user", "content": user_content}
-                        ], "qwen-max", 0.3)
+                        ], "deepseek-chat", 0.3)
                         st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
 
         else:
@@ -413,7 +419,7 @@ def main():
                         result = ask_ai([
                             {"role": "system", "content": sys_prompt},
                             {"role": "user", "content": book_content}
-                        ], "qwen-max", 0.3)
+                        ], "deepseek-chat", 0.3)
                         st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
 
     # ===== 🏷️ AI起名 =====
@@ -432,7 +438,7 @@ def main():
                 result = ask_ai([
                     {"role": "system", "content": f"你是起名高手。给{name_type}起名，要有创意、好记、有寓意。每个名字附一句话解释。别整太文艺的，要接地气。"},
                     {"role": "user", "content": f"给我起{count}个名字，要求：{desc}"}
-                ], "qwen-turbo", 0.9)
+                ], "deepseek-chat", 0.9)
                 st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
 
     # ===== 📅 日常小助手 =====
@@ -453,7 +459,7 @@ def main():
                     result = ask_ai([
                         {"role": "system", "content": "你是清单达人。生成详细实用的清单，分类列出，用复选框格式。别漏关键的。"},
                         {"role": "user", "content": f"帮我生成：{list_type}"}
-                    ], "qwen-turbo", 0.5)
+                    ], "deepseek-chat", 0.5)
                     st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
 
         elif helper_type == "🍽️ 今天吃什么":
@@ -464,7 +470,7 @@ def main():
                     result = ask_ai([
                         {"role": "system", "content": "你是美食推荐官。推荐3-5道菜，每道说一句推荐理由和简单做法。别整那些难的。"},
                         {"role": "user", "content": f"推荐今天吃什么，要求：{pref}"}
-                    ], "qwen-turbo", 0.8)
+                    ], "deepseek-chat", 0.8)
                     st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
 
         elif helper_type == "💪 健身计划":
@@ -474,7 +480,7 @@ def main():
                     result = ask_ai([
                         {"role": "system", "content": "你是健身教练。制定一周简易健身计划，适合新手，不用去健身房。用表格列出。动作要具体，组数次数写清楚。"},
                         {"role": "user", "content": f"目标：{goal}，给我一周计划"}
-                    ], "qwen-turbo", 0.5)
+                    ], "deepseek-chat", 0.5)
                     st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
 
         elif helper_type == "📖 读书推荐":
@@ -485,7 +491,7 @@ def main():
                     result = ask_ai([
                         {"role": "system", "content": "你是读书达人。推荐5本书，每本写一句话推荐理由和适合谁读。别推冷门的，要大众能找到的。"},
                         {"role": "user", "content": f"推荐{g}类的书"}
-                    ], "qwen-turbo", 0.7)
+                    ], "deepseek-chat", 0.7)
                     st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
 
         elif helper_type == "🎬 电影推荐":
@@ -496,7 +502,7 @@ def main():
                     result = ask_ai([
                         {"role": "system", "content": "你是电影达人。推荐5部电影，每部写一句话推荐理由。优先推经典好片，别推烂片。"},
                         {"role": "user", "content": f"推荐{m}的电影"}
-                    ], "qwen-turbo", 0.7)
+                    ], "deepseek-chat", 0.7)
                     st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
 
 
