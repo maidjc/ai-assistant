@@ -1,8 +1,2 @@
 streamlit
-dashscope
-PyPDF2
-python-docx
-openpyxl
-python-pptx
-streamlit
 openai
