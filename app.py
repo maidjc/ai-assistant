@@ -16,7 +16,7 @@ from datetime import datetime
 try:
     API_KEY = st.secrets["API_KEY"]
 except:
-    API_KEY = ""  # 未配置时为空，会提示错误
+    API_KEY = "sk-20802cfc5a78441b873a0c839e78b4c4"  # 未配置时为空，会提示错误
 # ================================
 
 # DeepSeek 客户端
