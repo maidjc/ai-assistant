@@ -326,10 +326,10 @@ def main():
                 placeholder = st.empty()
                 full = ""
                 for word in ask_ai_stream(st.session_state.messages):
-                    full = word
+                    full += word                     # ← 累加每个片段
                     placeholder.markdown(full + "▌")
                 placeholder.markdown(full)
-
+            
             st.session_state.messages.append({"role": "assistant", "content": full})
             st.session_state.stats["对话次数"] += 1
             st.session_state.stats["总字数"] += len(full)
