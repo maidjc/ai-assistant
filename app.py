@@ -1,5 +1,5 @@
 """
-AI小助手 v3.5
+AI小助手 v3.6
 功能：智能对话 + 书籍摘要 + AI起名 + 日常小助手
 运行：streamlit run app.py
 依赖：pip install streamlit openai
@@ -16,15 +16,15 @@ from datetime import datetime
 try:
     API_KEY = st.secrets["API_KEY"]
 except:
-    API_KEY = "sk-20802cfc5a78441b873a0c839e78b4c4"  # 未配置时为空，会提示错误
+    API_KEY = "4279ab216a1e4c8282b51f541aff703e.HJdsPUVWqGbMD7t0"  # 未配置时为空，会提示错误
 # ================================
 
-# DeepSeek 客户端
+# 智谱AI客户端
 _client = None
 def get_client():
     global _client
     if _client is None and API_KEY:
-        _client = OpenAI(api_key=API_KEY, base_url="https://api.deepseek.com")
+        _client = OpenAI(api_key=API_KEY, base_url="https://open.bigmodel.cn/api/paas/v4")
     return _client
 
 
@@ -38,8 +38,8 @@ def check_api_key():
     return True
 
 
-def ask_ai(messages, model="deepseek-chat", temperature=0.7):
-    """调用DeepSeek大模型，返回完整回复"""
+def ask_ai(messages, model="glm-4-flash", temperature=0.7):
+    """调用智谱大模型，返回完整回复"""
     client = get_client()
     if not client:
         return "⚠️ API Key 未配置，请先配置后再使用。"
@@ -53,8 +53,8 @@ def ask_ai(messages, model="deepseek-chat", temperature=0.7):
     return full
 
 
-def ask_ai_stream(messages, model="deepseek-chat", temperature=0.7):
-    """调用DeepSeek大模型，流式返回（聊天用）"""
+def ask_ai_stream(messages, model="glm-4-flash", temperature=0.7):
+    """调用智谱大模型，流式返回（聊天用）"""
     client = get_client()
     if not client:
         yield "⚠️ API Key 未配置，请先配置后再使用。"
@@ -390,7 +390,7 @@ def main():
                         result = ask_ai([
                             {"role": "system", "content": sys_prompt},
                             {"role": "user", "content": user_content}
-                        ], "deepseek-chat", 0.3)
+                        ], "glm-4-flash", 0.3)
                         st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
 
         else:
@@ -419,7 +419,7 @@ def main():
                         result = ask_ai([
                             {"role": "system", "content": sys_prompt},
                             {"role": "user", "content": book_content}
-                        ], "deepseek-chat", 0.3)
+                        ], "glm-4-flash", 0.3)
                         st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
 
     # ===== 🏷️ AI起名 =====
@@ -438,7 +438,7 @@ def main():
                 result = ask_ai([
                     {"role": "system", "content": f"你是起名高手。给{name_type}起名，要有创意、好记、有寓意。每个名字附一句话解释。别整太文艺的，要接地气。"},
                     {"role": "user", "content": f"给我起{count}个名字，要求：{desc}"}
-                ], "deepseek-chat", 0.9)
+                ], "glm-4-flash", 0.9)
                 st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
 
     # ===== 📅 日常小助手 =====
@@ -459,7 +459,7 @@ def main():
                     result = ask_ai([
                         {"role": "system", "content": "你是清单达人。生成详细实用的清单，分类列出，用复选框格式。别漏关键的。"},
                         {"role": "user", "content": f"帮我生成：{list_type}"}
-                    ], "deepseek-chat", 0.5)
+                    ], "glm-4-flash", 0.5)
                     st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
 
         elif helper_type == "🍽️ 今天吃什么":
@@ -470,7 +470,7 @@ def main():
                     result = ask_ai([
                         {"role": "system", "content": "你是美食推荐官。推荐3-5道菜，每道说一句推荐理由和简单做法。别整那些难的。"},
                         {"role": "user", "content": f"推荐今天吃什么，要求：{pref}"}
-                    ], "deepseek-chat", 0.8)
+                    ], "glm-4-flash", 0.8)
                     st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
 
         elif helper_type == "💪 健身计划":
@@ -480,7 +480,7 @@ def main():
                     result = ask_ai([
                         {"role": "system", "content": "你是健身教练。制定一周简易健身计划，适合新手，不用去健身房。用表格列出。动作要具体，组数次数写清楚。"},
                         {"role": "user", "content": f"目标：{goal}，给我一周计划"}
-                    ], "deepseek-chat", 0.5)
+                    ], "glm-4-flash", 0.5)
                     st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
 
         elif helper_type == "📖 读书推荐":
@@ -491,7 +491,7 @@ def main():
                     result = ask_ai([
                         {"role": "system", "content": "你是读书达人。推荐5本书，每本写一句话推荐理由和适合谁读。别推冷门的，要大众能找到的。"},
                         {"role": "user", "content": f"推荐{g}类的书"}
-                    ], "deepseek-chat", 0.7)
+                    ], "glm-4-flash", 0.7)
                     st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
 
         elif helper_type == "🎬 电影推荐":
@@ -502,7 +502,7 @@ def main():
                     result = ask_ai([
                         {"role": "system", "content": "你是电影达人。推荐5部电影，每部写一句话推荐理由。优先推经典好片，别推烂片。"},
                         {"role": "user", "content": f"推荐{m}的电影"}
-                    ], "deepseek-chat", 0.7)
+                    ], "glm-4-flash", 0.7)
                     st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
 
 
