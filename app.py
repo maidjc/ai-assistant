@@ -1,11 +1,12 @@
 """
-小政AI助手 v4.1 修复版
-已解决语法错误 + 清爽白主题 + 手机适配
+小政AI助手 v4.2 最终稳定版
+✅ 书摘不再胡编乱造
+✅ 改为：书籍介绍 + 同类小说推荐
+✅ 手机适配 + 清爽配色 + 无报错
 """
 import streamlit as st
 from openai import OpenAI
 from datetime import datetime
-from openai import APIError, APIConnectionError, RateLimitError
 
 # ============ 配置区 ============
 try:
@@ -70,100 +71,31 @@ def main():
         initial_sidebar_state="collapsed"
     )
 
-    # 清爽白主题 + 高对比度 CSS
+    # 清爽白主题 CSS
     st.markdown("""
     <style>
-    * {
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
-    }
+    * {-webkit-font-smoothing: antialiased;}
     #MainMenu, footer, header, .stDeployButton, [data-testid="stToolbar"] {
-        display: none !important;
-        visibility: hidden !important;
-        height: 0 !important;
+        display: none !important; height:0; visibility:hidden;
     }
-    .stApp {
-        background: #ffffff !important;
-        padding: 0 !important;
-        margin: 0 auto !important;
-        max-width: 100% !important;
-    }
-    .block-container {
-        max-width: 100% !important;
-        width: 100% !important;
-        padding: 8px 12px 80px 12px !important;
-        margin: 0 auto !important;
-    }
-    body, .stMarkdown, .stTextInput, .stTextArea, .stButton, .stRadio, .stSelectbox {
-        color: #1a1a1a !important;
-        font-family: system-ui, -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif !important;
-    }
+    .stApp {background:#fff;}
+    .block-container {padding:8px 12px 80px 12px; max-width:100%;}
     .stChatInput {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        background: #ffffff !important;
-        padding: 8px 12px;
-        z-index: 999;
-        border-top: 1px solid #e5e7eb;
+        position:fixed; bottom:0; left:0; right:0;
+        background:#fff; padding:8px 12px; z-index:999;
+        border-top:1px solid #eee;
     }
-    .stChatInput > div > div > div {
-        border-radius: 24px !important;
-        height: 46px !important;
-        font-size: 16px !important;
-        border: 1.5px solid #e5e7eb !important;
-        background: #f9fafb !important;
-    }
-    [data-testid="stChatMessageContent"] {
-        font-size: 16px !important;
-        line-height: 1.6 !important;
-        padding: 8px 12px !important;
-        color: #1a1a1a !important;
-    }
-    .stButton > button {
-        height: 48px !important;
-        font-size: 16px !important;
-        border-radius: 12px !important;
-        border: none !important;
-        font-weight: 500 !important;
-        transition: all 0.2s ease;
-    }
-    .stButton > button[kind="primary"] {
-        background: #2563eb !important;
-        color: #ffffff !important;
-    }
-    .stButton > button[kind="secondary"] {
-        background: #f3f4f6 !important;
-        color: #1a1a1a !important;
-    }
+    .stChatInput>div>div>div {border-radius:24px; height:46px; background:#f9f9f9;}
+    .stButton>button {height:48px; border-radius:12px; font-size:16px;}
+    .stButton>button[kind="primary"] {background:#2563eb; color:#fff;}
     .func-card {
-        background: #ffffff !important;
-        border-radius: 16px;
-        padding: 16px;
-        margin: 8px 0;
-        border: 1px solid #e5e7eb;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    }
-    .stTextInput input, .stTextArea textarea {
-        font-size: 16px !important;
-        height: 48px !important;
-        border-radius: 12px !important;
-        border: 1.5px solid #e5e7eb !important;
-        background: #ffffff !important;
-        color: #1a1a1a !important;
-    }
-    h3, h4, h5, h6, .stTitle, .stHeader {
-        color: #1a1a1a !important;
-    }
-    .stRadio label, .stSelectbox label {
-        color: #1a1a1a !important;
-        font-size: 16px !important;
+        background:#fff; border-radius:16px; padding:16px;
+        margin:8px 0; border:1px solid #eee;
     }
     </style>
     """, unsafe_allow_html=True)
 
-    # 初始化会话
+    # 初始化
     if "messages" not in st.session_state:
         today = datetime.now().strftime("%Y年%m月%d日")
         st.session_state.messages = [{"role": "system", "content": SYSTEM_PROMPT.format(date=today)}]
@@ -178,13 +110,16 @@ def main():
     cols = st.columns(4)
     for i, label in enumerate(nav_items):
         with cols[i]:
-            if st.button(label, use_container_width=True, type="primary" if st.session_state.current_func == label else "secondary"):
+            if st.button(label, use_container_width=True,
+                type="primary" if st.session_state.current_func == label else "secondary"):
                 st.session_state.current_func = label
                 st.rerun()
 
     func = st.session_state.current_func
 
+    # ------------------------------
     # 💬 对话
+    # ------------------------------
     if func == "💬 对话":
         is_empty = all(m["role"] == "system" for m in st.session_state.messages)
         if is_empty:
@@ -213,52 +148,99 @@ def main():
             st.session_state.stats["对话次数"] += 1
             st.session_state.stats["总字数"] += len(full)
 
-    # 📖 书摘
+    # ------------------------------
+    # 📖 书摘（核心修复：绝不胡编）
+    # ------------------------------
     elif func == "📖 书摘":
-        st.markdown('<div class="func-card"><h3>📖 书籍摘要</h3></div>', unsafe_allow_html=True)
-        mode = st.radio("模式", ["书名", "粘贴内容"], horizontal=True)
-        if mode == "书名":
-            book = st.text_input("书名")
-            section = st.text_input("章节（可选）")
-            if st.button("生成概览", use_container_width=True):
-                if book:
-                    res = ask_ai([
-                        {"role":"system","content":"概括全书，简洁清晰"},
-                        {"role":"user","content":f"《{book}》{section} 概览"}
-                    ])
-                    st.markdown(f'<div class="func-card">{res}</div>', unsafe_allow_html=True)
-        else:
-            txt = st.text_area("粘贴内容", height=200)
-            if st.button("提取摘要", use_container_width=True):
-                res = ask_ai([
-                    {"role":"system","content":"提取好词好句+概括"},
-                    {"role": "user", "content":txt}
-                ])
-                st.markdown(f'<div class="func-card">{res}</div>', unsafe_allow_html=True)
+        st.markdown('<div class="func-card"><h3>📖 书籍介绍 & 同类推荐</h3></div>', unsafe_allow_html=True)
+        input_mode = st.radio("模式", ["书名", "粘贴原文"], horizontal=True, label_visibility="collapsed")
 
+        if input_mode == "书名":
+            book_name = st.text_input("书名", placeholder="如：三体、活着、白夜行")
+            author = st.text_input("作者（选填）")
+
+            if st.button("📚 获取介绍 & 推荐", type="primary", use_container_width=True):
+                if not book_name.strip():
+                    st.warning("请输入书名")
+                else:
+                    with st.spinner("正在整理..."):
+                        # 🔴 关键：强制禁止编造，只做介绍+推荐
+                        sys_prompt = """
+你是专业书籍推荐官，**绝对禁止编造任何章节、剧情、细节**。
+用户输入书名，你只输出两项内容：
+1. 本书真实、简洁、客观的介绍（主题、类型、核心亮点）
+2. 推荐5本**同类型、同风格**的高质量小说，每本一句话理由
+
+输出格式严格如下：
+### 📖 书籍介绍
+（这里写介绍）
+
+### 🔍 同类小说推荐
+1. 《书名》：一句话推荐理由
+2. 《书名》：一句话推荐理由
+3. 《书名》：一句话推荐理由
+4. 《书名》：一句话推荐理由
+5. 《书名》：一句话推荐理由
+
+规则：
+- 不知道就说“暂无详细介绍”，不许编
+- 不写具体章节、不编剧情
+- 语言简洁、真实、可靠
+"""
+                        result = ask_ai([
+                            {"role": "system", "content": sys_prompt},
+                            {"role": "user", "content": f"书名：{book_name} 作者：{author}"}
+                        ], temperature=0.2)
+                        st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
+
+        else:
+            st.markdown('<div style="color:#666; margin-bottom:8px;">粘贴原文，提取真实摘要（不编造）</div>', unsafe_allow_html=True)
+            content = st.text_area("原文内容", height=200)
+            if st.button("✂️ 提取真实摘要", type="primary", use_container_width=True):
+                if content.strip():
+                    with st.spinner("提取中..."):
+                        sys_prompt = """
+从用户提供的原文中**只提取真实存在的信息**，不扩展、不编造、不脑补。
+输出：
+### ✂️ 内容摘要
+### 💡 核心观点
+"""
+                        result = ask_ai([
+                            {"role": "system", "content": sys_prompt},
+                            {"role": "user", "content": content}
+                        ])
+                        st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
+
+    # ------------------------------
     # 🏷️ 起名
+    # ------------------------------
     elif func == "🏷️ 起名":
         st.markdown('<div class="func-card"><h3>🏷️ AI起名</h3></div>', unsafe_allow_html=True)
-        t = st.selectbox("类型", ["品牌", "宠物", "网名", "角色"])
-        desc = st.text_input("描述")
-        if st.button("开始起名", use_container_width=True):
-            res = ask_ai([
-                {"role":"system","content":"起名高手，简洁好记"},
-                {"role":"user","content":f"{t}：{desc}，起5个"}
-            ])
-            st.markdown(f'<div class="func-card">{res}</div>', unsafe_allow_html=True)
+        kind = st.selectbox("类型", ["品牌/店铺", "宠物", "网名", "小说角色"])
+        desc = st.text_input("描述（风格、人群、特点）")
+        num = st.slider("数量", 3, 10, 5)
+        if st.button("✨ 开始起名", type="primary", use_container_width=True) and desc:
+            with st.spinner("构思中..."):
+                res = ask_ai([
+                    {"role":"system","content":"起名简洁、好记、有寓意，附一句话解释"},
+                    {"role":"user","content":f"给{kind}起{num}个名字，要求：{desc}"}
+                ], temperature=0.9)
+                st.markdown(f'<div class="func-card">{res}</div>', unsafe_allow_html=True)
 
+    # ------------------------------
     # 📅 日常
+    # ------------------------------
     elif func == "📅 日常":
         st.markdown('<div class="func-card"><h3>📅 日常小助手</h3></div>', unsafe_allow_html=True)
-        tool = st.selectbox("工具", ["清单", "吃什么", "健身计划", "读书", "电影"])
-        txt = st.text_input("输入需求")
-        if st.button("生成", use_container_width=True):
-            res = ask_ai([
-                {"role":"system","content":"实用简洁"},
-                {"role":"user","content":f"{tool}：{txt}"}
-            ])
-            st.markdown(f'<div class="func-card">{res}</div>', unsafe_allow_html=True)
+        tool = st.selectbox("工具", ["清单", "吃什么", "健身计划", "读书推荐", "电影推荐"])
+        req = st.text_input("输入需求")
+        if st.button("🚀 生成", type="primary", use_container_width=True) and req:
+            with st.spinner("生成中..."):
+                res = ask_ai([
+                    {"role":"system","content":"简洁实用、步骤清晰、不啰嗦"},
+                    {"role":"user","content":f"{tool}：{req}"}
+                ])
+                st.markdown(f'<div class="func-card">{res}</div>', unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
