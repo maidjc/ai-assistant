@@ -1,6 +1,6 @@
 """
-小政AI助手 v3.8 手机完美版
-电脑/手机通用 | 底部输入框 | 全屏清爽
+小政AI助手 v4.0 清爽白主题 + 高对比度版
+电脑/手机通用 | 白背景+深色文字 | 高清晰度
 """
 import streamlit as st
 from openai import OpenAI
@@ -70,16 +70,23 @@ def main():
         initial_sidebar_state="collapsed"
     )
 
-    # 手机专用CSS
+    # ======================
+    # 清爽白主题 + 高对比度 CSS
+    # ======================
     st.markdown("""
     <style>
+    /* 全局基础样式 */
+    * {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
     #MainMenu, footer, header, .stDeployButton, [data-testid="stToolbar"] {
         display: none !important;
         visibility: hidden !important;
         height: 0 !important;
     }
     .stApp {
-        background: #f5f5f5;
+        background: #ffffff !important;
         padding: 0 !important;
         margin: 0 auto !important;
         max-width: 100% !important;
@@ -90,47 +97,79 @@ def main():
         padding: 8px 12px 80px 12px !important;
         margin: 0 auto !important;
     }
+    /* 文字清晰度优化 */
+    body, .stMarkdown, .stTextInput, .stTextArea, .stButton, .stRadio, .stSelectbox {
+        color: #1a1a1a !important;
+        font-family: system-ui, -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif !important;
+    }
+    /* 输入框固定底部 */
     .stChatInput {
         position: fixed;
         bottom: 0;
         left: 0;
         right: 0;
-        background: #fff;
+        background: #ffffff !important;
         padding: 8px 12px;
         z-index: 999;
-        border-top: 1px solid #eee;
+        border-top: 1px solid #e5e7eb;
     }
     .stChatInput > div > div > div {
         border-radius: 24px !important;
         height: 46px !important;
         font-size: 16px !important;
+        border: 1.5px solid #e5e7eb !important;
+        background: #f9fafb !important;
     }
+    /* 聊天气泡 */
     [data-testid="stChatMessageContent"] {
         font-size: 16px !important;
         line-height: 1.6 !important;
         padding: 8px 12px !important;
+        color: #1a1a1a !important;
     }
-    [data-testid="stChatMessageAvatarUser"],
-    [data-testid="stChatMessageAvatarAssistant"] {
-        width: 32px !important;
-        height: 32px !important;
+    /* 按钮配色优化 */
+    .stButton > button {
+        height: 48px !important;
+        font-size: 16px !important;
+        border-radius: 12px !important;
+        border: none !important;
+        font-weight: 500 !important;
+        transition: all 0.2s ease;
     }
+    .stButton > button[kind="primary"] {
+        background: #2563eb !important;
+        color: #ffffff !important;
+    }
+    .stButton > button[kind="secondary"] {
+        background: #f3f4f6 !important;
+        color: #1a1a1a !important;
+    }
+    /* 卡片样式 */
     .func-card {
-        background: #fff;
+        background: #ffffff !important;
         border-radius: 16px;
         padding: 16px;
         margin: 8px 0;
-        border: 1px solid #eee;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
-    .stButton > button {
-        height: 44px !important;
-        font-size: 16px !important;
-        border-radius: 12px !important;
-    }
+    /* 输入控件 */
     .stTextInput input, .stTextArea textarea {
         font-size: 16px !important;
-        height: 44px !important;
+        height: 48px !important;
         border-radius: 12px !important;
+        border: 1.5px solid #e5e7eb !important;
+        background: #ffffff !important;
+        color: #1a1a1a !important;
+    }
+    /* 导航栏文字 */
+    h3, h4, h5, h6, .stTitle, .stHeader {
+        color: #1a1a1a !important;
+    }
+    /* 单选框、选择框文字 */
+    .stRadio label, .stSelectbox label {
+        color: #1a1a1a !important;
+        font-size: 16px !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -204,7 +243,7 @@ def main():
             if st.button("提取摘要", use_container_width=True):
                 res = ask_ai([
                     {"role":"system","content":"提取好词好句+概括"},
-                    {"role":"user", "content":txt}
+                    {"role": "content":txt}
                 ])
                 st.markdown(f'<div class="func-card">{res}</div>', unsafe_allow_html=True)
 
