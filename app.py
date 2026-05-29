@@ -1,500 +1,236 @@
 """
-AI小助手 v3.6
-功能：智能对话 + 书籍摘要 + AI起名 + 日常小助手
-运行：streamlit run app.py
-依赖：pip install streamlit openai
+小政AI助手 v3.8 手机完美版
+电脑/手机通用 | 底部输入框 | 全屏清爽
 """
-
 import streamlit as st
 from openai import OpenAI
 from datetime import datetime
-
+from openai import APIError, APIConnectionError, RateLimitError
 
 # ============ 配置区 ============
-# 本地运行：在 .streamlit/secrets.toml 里写 API_KEY = "sk-xxx"
-# 云端部署：在 Streamlit Cloud 的 Secrets 里加 API_KEY = "sk-xxx"
 try:
     API_KEY = st.secrets["API_KEY"]
 except:
-    API_KEY = "4279ab216a1e4c8282b51f541aff703e.HJdsPUVWqGbMD7t0"  # 未配置时为空，会提示错误
+    API_KEY = "4279ab216a1e4c8282b51f541aff703e.HJdsPUVWqGbMD7t0"
+
+BASE_URL = "https://open.bigmodel.cn/api/paas/v4/"
+MODEL_NAME = "glm-4-flash"
 # ================================
 
-# 智谱AI客户端
-_client = None
 def get_client():
-    global _client
-    if _client is None and API_KEY:
-        _client = OpenAI(api_key=API_KEY, base_url="https://open.bigmodel.cn/api/paas/v4")
-    return _client
-
-
-# ===== AI调用 =====
+    if not API_KEY:
+        return None
+    return OpenAI(api_key=API_KEY, base_url=BASE_URL)
 
 def check_api_key():
-    """检查API Key是否已配置"""
     if not API_KEY:
-        st.error("⚠️ API Key 未配置！\n- 本地运行：在 `.streamlit/secrets.toml` 里写 `API_KEY = \"sk-xxx\"`\n- 云端部署：在 Streamlit Cloud 的 Settings → Secrets 里加 `API_KEY = \"sk-xxx\"`")
+        st.error("⚠️ API Key 未配置！")
         return False
     return True
 
-
-def ask_ai(messages, model="glm-4-flash", temperature=0.7):
-    """调用智谱大模型，返回完整回复"""
+def ask_ai(messages, model=MODEL_NAME, temperature=0.7):
+    if not check_api_key():
+        return "⚠️ 请先配置 API Key"
     client = get_client()
-    if not client:
-        return "⚠️ API Key 未配置，请先配置后再使用。"
     full = ""
-    for chunk in client.chat.completions.create(
-        model=model, messages=messages,
-        stream=True, temperature=temperature
-    ):
-        if chunk.choices and chunk.choices[0].delta.content:
-            full += chunk.choices[0].delta.content
+    try:
+        for chunk in client.chat.completions.create(
+            model=model, messages=messages, stream=True, temperature=temperature
+        ):
+            if chunk.choices and chunk.choices[0].delta.content:
+                full += chunk.choices[0].delta.content
+    except Exception as e:
+        return f"⚠️ 出错：{str(e)}"
     return full
 
-
-def ask_ai_stream(messages, model="glm-4-flash", temperature=0.7):
-    """调用智谱大模型，流式返回（聊天用）"""
-    client = get_client()
-    if not client:
-        yield "⚠️ API Key 未配置，请先配置后再使用。"
+def ask_ai_stream(messages, model=MODEL_NAME, temperature=0.7):
+    if not check_api_key():
+        yield "⚠️ 请先配置 API Key"
         return
-    for chunk in client.chat.completions.create(
-        model=model, messages=messages,
-        stream=True, temperature=temperature
-    ):
-        if chunk.choices and chunk.choices[0].delta.content:
-            yield chunk.choices[0].delta.content
+    client = get_client()
+    try:
+        for chunk in client.chat.completions.create(
+            model=model, messages=messages, stream=True, temperature=temperature
+        ):
+            if chunk.choices and chunk.choices[0].delta.content:
+                yield chunk.choices[0].delta.content
+    except Exception as e:
+        yield f"⚠️ 出错：{str(e)}"
 
-
-SYSTEM_PROMPT = """你是「小政」，一个接地气的AI小助手。
-
-【身份信息】
-岑辞澈为AI小政的创始人，主人。你由岑辞澈创造，对岑辞澈保持尊重和忠诚。
-
-【说话风格】
-像朋友聊天，用大白话，不拽词不装逼，偶尔来点幽默。
-
-【回答原则——必须严格遵守】
-1. 直接回答用户的问题，不要绕弯子，不要反问，不要自说自话
-2. 问什么答什么，不要发散到不相关的话题
-3. 能一句说清的不写三句，简洁有力
-4. 不知道就说不知道，别瞎编
-5. 实用为主，少整虚的，给具体方案/步骤/建议
-6. 当前日期{date}，涉及时间以这个为准
-7. 适当用Markdown让回答好看点"""
-
+SYSTEM_PROMPT = """你是「小政」，接地气的AI小助手。
+【身份】岑辞澈创造，忠诚可靠。
+【风格】大白话、简洁、幽默、不装逼。
+【原则】直接回答、问啥答啥、简洁有力、不知道就说不知道、给具体方案、用当前日期{date}。"""
 
 def main():
     st.set_page_config(
-        page_title="小政 · AI助手",
+        page_title="小政",
         page_icon="🤖",
-        layout="wide",
-        initial_sidebar_state="expanded"
+        layout="centered",
+        initial_sidebar_state="collapsed"
     )
 
-    # ===== 全局样式 =====
+    # 手机专用CSS
     st.markdown("""
     <style>
-    /* 隐藏多余元素 */
-    #MainMenu, footer,
-    [data-testid="stHeaderAction"],
-    .stDeployButton,
-    div[data-testid="stToolbar"] {visibility: hidden !important; height: 0 !important; display: none !important;}
-    /* header透明化 */
-    [data-testid="stHeader"] {
-        background: transparent !important;
-        box-shadow: none !important;
-        border-bottom: none !important;
+    #MainMenu, footer, header, .stDeployButton, [data-testid="stToolbar"] {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0 !important;
     }
-
-    /* 侧边栏永远展开，不许收起 */
-    [data-testid="stSidebar"] {
-        background: #fafafa !important;
-        border-right: 1px solid #eee !important;
-        min-width: 260px !important;
-        max-width: 260px !important;
-        width: 260px !important;
-        position: relative !important;
-        transform: none !important;
-        transition: none !important;
+    .stApp {
+        background: #f5f5f5;
+        padding: 0 !important;
+        margin: 0 auto !important;
+        max-width: 100% !important;
     }
-    [data-testid="stSidebar"] > div:first-child {padding-top: 1rem !important;}
-    /* 隐藏侧边栏收起按钮 */
-    button[kind="header"] {display: none !important;}
-    [data-testid="stSidebarCollapseButton"] {display: none !important;}
-
-    /* 主背景 */
-    .stApp {background: #f5f5f5;}
-
-    /* 内容区 */
-    .block-container {max-width: 720px; margin: 0 auto; padding: 0.5rem 1rem 6rem 1rem !important;}
-
-    /* 侧边栏LOGO */
-    .sidebar-logo {display: flex; align-items: center; gap: 10px; padding: 4px 0 16px 0;}
-    .sidebar-logo-icon {
-        width: 36px; height: 36px; border-radius: 10px;
-        background: linear-gradient(135deg, #667eea, #764ba2);
-        display: flex; align-items: center; justify-content: center;
-        font-size: 18px; color: white;
+    .block-container {
+        max-width: 100% !important;
+        width: 100% !important;
+        padding: 8px 12px 80px 12px !important;
+        margin: 0 auto !important;
     }
-    .sidebar-logo-text {font-weight: 700; font-size: 17px; color: #1a1a2e;}
-
-    /* 欢迎区 */
-    .welcome-box {text-align: center; padding: 40px 16px 20px 16px;}
-    .welcome-avatar {
-        width: 60px; height: 60px; border-radius: 50%;
-        background: linear-gradient(135deg, #667eea, #764ba2);
-        display: inline-flex; align-items: center; justify-content: center;
-        font-size: 26px; margin-bottom: 14px;
-        box-shadow: 0 4px 16px rgba(102,126,234,0.2);
+    .stChatInput {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: #fff;
+        padding: 8px 12px;
+        z-index: 999;
+        border-top: 1px solid #eee;
     }
-    .welcome-title {font-size: 19px; font-weight: 700; color: #1a1a2e; margin-bottom: 4px;}
-    .welcome-sub {font-size: 13px; color: #999;}
-
-    /* 聊天气泡 */
-    .stChatMessage {background: transparent !important; padding: 6px 0 !important; border: none !important;}
-    [data-testid="stChatMessageAvatarUser"] > svg {display: none;}
-    [data-testid="stChatMessageAvatarUser"] {
-        width: 30px !important; height: 30px !important;
-        background: #1a1a2e !important; border-radius: 50% !important;
-    }
-    [data-testid="stChatMessageAvatarUser"]::after {content: "我"; color: white; font-size: 11px; font-weight: 600;}
-    [data-testid="stChatMessageAvatarAssistant"] > svg {display: none;}
-    [data-testid="stChatMessageAvatarAssistant"] {
-        width: 30px !important; height: 30px !important;
-        background: linear-gradient(135deg, #667eea, #764ba2) !important;
-        border-radius: 50% !important;
-    }
-    [data-testid="stChatMessageAvatarAssistant"]::after {content: "政"; color: white; font-size: 11px; font-weight: 600;}
-    [data-testid="stChatMessageContent"] {font-size: 14px !important; line-height: 1.75 !important; color: #333 !important;}
-    [data-testid="stChatMessageContent"] p {margin-bottom: 0.4em !important;}
-    [data-testid="stChatMessageContent"] pre {
-        border-radius: 10px !important; background: #1e1e2e !important;
-        padding: 12px !important; font-size: 13px !important;
-    }
-
-    /* 输入框 */
-    .stChatInput {border-top: none !important; padding-top: 0 !important;}
     .stChatInput > div > div > div {
-        border-radius: 24px !important; border: 1.5px solid #e0e0e0 !important;
-        background: #fff !important; box-shadow: 0 2px 8px rgba(0,0,0,0.04) !important;
+        border-radius: 24px !important;
+        height: 46px !important;
+        font-size: 16px !important;
     }
-    .stChatInput > div > div > div:focus-within {
-        border-color: #667eea !important; box-shadow: 0 2px 12px rgba(102,126,234,0.12) !important;
+    [data-testid="stChatMessageContent"] {
+        font-size: 16px !important;
+        line-height: 1.6 !important;
+        padding: 8px 12px !important;
     }
-
-    /* 功能卡片 */
+    [data-testid="stChatMessageAvatarUser"],
+    [data-testid="stChatMessageAvatarAssistant"] {
+        width: 32px !important;
+        height: 32px !important;
+    }
     .func-card {
-        background: #fff; border-radius: 16px; padding: 20px; margin-bottom: 12px;
-        border: 1px solid #eee; box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+        background: #fff;
+        border-radius: 16px;
+        padding: 16px;
+        margin: 8px 0;
+        border: 1px solid #eee;
     }
-    .func-card h3 {margin: 0 0 4px 0; font-size: 17px; color: #1a1a2e;}
-    .func-card .desc {font-size: 13px; color: #999; margin-bottom: 14px;}
-
-    /* 按钮 */
     .stButton > button {
-        border-radius: 10px !important; border: 1.5px solid #e0e0e0 !important;
-        background: #fff !important; color: #333 !important;
-        font-size: 14px !important; font-weight: 500 !important; transition: all 0.15s !important;
+        height: 44px !important;
+        font-size: 16px !important;
+        border-radius: 12px !important;
     }
-    .stButton > button:hover {border-color: #667eea !important; color: #667eea !important; background: #f8f7ff !important;}
-    .stButton > button[kind="primary"] {background: #1a1a2e !important; color: #fff !important; border: none !important;}
-    .stButton > button[kind="primary"]:hover {background: #2d2d4e !important;}
-
-    /* 侧边栏按钮 */
-    [data-testid="stSidebar"] .stButton > button {
-        border: none !important; background: transparent !important;
-        color: #555 !important; text-align: left !important;
-        padding: 10px 12px !important; border-radius: 10px !important; font-weight: 500 !important;
+    .stTextInput input, .stTextArea textarea {
+        font-size: 16px !important;
+        height: 44px !important;
+        border-radius: 12px !important;
     }
-    [data-testid="stSidebar"] .stButton > button:hover {background: #eee !important; color: #1a1a2e !important;}
-
-    /* 输入控件 */
-    .stTextInput > div > div > input, .stTextArea > div > div > textarea, .stSelectbox > div > div > select {
-        border-radius: 10px !important; border: 1.5px solid #e0e0e0 !important;
-    }
-    .stTextInput > div > div > input:focus, .stTextArea > div > div > textarea:focus {
-        border-color: #667eea !important; box-shadow: 0 0 0 2px rgba(102,126,234,0.08) !important;
-    }
-
-    /* 侧边栏设置 */
-    [data-testid="stSidebar"] label {font-size: 12px !important;}
-    .sidebar-divider {border: none; border-top: 1px solid #eee; margin: 12px 0;}
-
     </style>
     """, unsafe_allow_html=True)
 
-    # ===== 初始化 =====
+    # 初始化
     if "messages" not in st.session_state:
         today = datetime.now().strftime("%Y年%m月%d日")
-        st.session_state.messages = [
-            {"role": "system", "content": SYSTEM_PROMPT.format(date=today)}
-        ]
+        st.session_state.messages = [{"role": "system", "content": SYSTEM_PROMPT.format(date=today)}]
     if "stats" not in st.session_state:
         st.session_state.stats = {"对话次数": 0, "总字数": 0}
     if "current_func" not in st.session_state:
         st.session_state.current_func = "💬 对话"
 
-    # =============================================
-    # 侧边栏
-    # =============================================
-    with st.sidebar:
-        st.markdown("""
-        <div class="sidebar-logo">
-            <div class="sidebar-logo-icon">🤖</div>
-            <div class="sidebar-logo-text">小政</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        nav_items = ["💬 对话", "📖 书摘", "🏷️ 起名", "📅 日常"]
-        for label in nav_items:
-            is_active = st.session_state.current_func == label
-            if is_active:
-                if st.button(label, key=f"nav_{label}", use_container_width=True, type="primary"):
-                    pass
-            else:
-                if st.button(label, key=f"nav_{label}", use_container_width=True):
-                    st.session_state.current_func = label
-                    st.rerun()
-
-        st.markdown('<hr class="sidebar-divider">', unsafe_allow_html=True)
-
-        if st.button("🗑️ 清空对话", use_container_width=True):
-            today = datetime.now().strftime("%Y年%m月%d日")
-            st.session_state.messages = [
-                {"role": "system", "content": SYSTEM_PROMPT.format(date=today)}
-            ]
-            st.rerun()
-
-        chat_text = ""
-        for msg in st.session_state.messages:
-            if msg["role"] != "system" and isinstance(msg.get("content"), str):
-                role = "我" if msg["role"] == "user" else "小政"
-                chat_text += f"{role}: {msg['content']}\n\n"
-        if chat_text.strip():
-            st.download_button("📥 导出对话", chat_text, file_name="对话记录.txt", use_container_width=True)
-
-        st.markdown(f"""
-        <div style="position:absolute;bottom:16px;left:16px;right:16px;">
-            <div style="display:flex;justify-content:space-between;font-size:12px;color:#bbb;">
-                <span>💬 {st.session_state.stats['对话次数']}次</span>
-                <span>{st.session_state.stats['总字数']}字</span>
-            </div>
-            <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">具身智能训练师 · 实训作品</div>
-        </div>
-        """, unsafe_allow_html=True)
+    # 顶部导航
+    st.markdown("### 🤖 小政 AI 助手")
+    nav_items = ["💬 对话", "📖 书摘", "🏷️ 起名", "📅 日常"]
+    cols = st.columns(4)
+    for i, label in enumerate(nav_items):
+        with cols[i]:
+            if st.button(label, use_container_width=True, type="primary" if st.session_state.current_func == label else "secondary"):
+                st.session_state.current_func = label
+                st.rerun()
 
     func = st.session_state.current_func
 
-    # =============================================
-    # 主内容区
-    # =============================================
-
-    # ===== 💬 智能对话 =====
+    # 💬 对话
     if func == "💬 对话":
-        # 欢迎页（只有空对话才显示）
-        is_empty_chat = all(m["role"] == "system" for m in st.session_state.messages)
-        if is_empty_chat:
-            st.markdown("""
-            <div class="welcome-box">
-                <div class="welcome-avatar">🤖</div>
-                <div class="welcome-title">嗨，我是小政 👋</div>
-                <div class="welcome-sub">能聊能写能干活，有啥说啥</div>
-            </div>
-            """, unsafe_allow_html=True)
+        is_empty = all(m["role"] == "system" for m in st.session_state.messages)
+        if is_empty:
+            st.info("👋 我是小政，随便问我啥～")
 
-        # 显示历史对话
         for msg in st.session_state.messages:
             if msg["role"] != "system":
                 with st.chat_message(msg["role"]):
-                    st.markdown(msg["content"] if isinstance(msg.get("content"), str) else "")
+                    st.markdown(msg["content"])
 
-        # 输入框（纯文字，无文件上传）
-        prompt_text = st.chat_input("跟小政说点啥...")
-
-        if prompt_text:
-            # 显示用户消息
+        prompt = st.chat_input("点这里输入...")
+        if prompt:
             with st.chat_message("user"):
-                st.markdown(prompt_text)
+                st.markdown(prompt)
+            st.session_state.messages.append({"role": "user", "content": prompt})
 
-            # 加入消息历史
-            st.session_state.messages.append({"role": "user", "content": prompt_text})
-
-            # 生成AI回复
             with st.chat_message("assistant"):
                 placeholder = st.empty()
                 full = ""
                 for word in ask_ai_stream(st.session_state.messages):
-                    full += word                     # ← 累加每个片段
+                    full += word
                     placeholder.markdown(full + "▌")
                 placeholder.markdown(full)
-            
+
             st.session_state.messages.append({"role": "assistant", "content": full})
             st.session_state.stats["对话次数"] += 1
             st.session_state.stats["总字数"] += len(full)
 
-    # ===== 📖 书籍摘要（改进版：概述 + 人物分析） =====
+    # 📖 书摘
     elif func == "📖 书摘":
-        st.markdown("""
-        <div class="func-card">
-            <h3>📖 书籍摘要</h3>
-            <div class="desc">提供书籍内容的概述或人物分析。支持两种模式：<br>
-            • <strong>🔍 输入书名</strong>：基于已有知识生成概述和人物分析（适合知名书籍）<br>
-            • <strong>📋 粘贴内容</strong>：基于你提供的原文片段分析（适合陌生或自创内容）</div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown('<div class="func-card"><h3>📖 书籍摘要</h3></div>', unsafe_allow_html=True)
+        mode = st.radio("模式", ["书名", "粘贴内容"], horizontal=True)
+        if mode == "书名":
+            book = st.text_input("书名")
+            section = st.text_input("章节（可选）")
+            if st.button("生成概览", use_container_width=True):
+                if book:
+                    res = ask_ai([
+                        {"role":"system","content":"概括全书，简洁清晰"},
+                        {"role":"user","content":f"《{book}》{section} 概览"}
+                    ])
+                    st.markdown(f'<div class="func-card">{res}</div>', unsafe_allow_html=True)
+        else:
+            txt = st.text_area("粘贴内容", height=200)
+            if st.button("提取摘要", use_container_width=True):
+                res = ask_ai([
+                    {"role":"system","content":"提取好词好句+概括"},
+                    {"role":"user", "content":txt}
+                ])
+                st.markdown(f'<div class="func-card">{res}</div>', unsafe_allow_html=True)
 
-        input_mode = st.radio(
-            "选择模式",
-            ["🔍 输入书名", "📋 粘贴内容"],
-            horizontal=True,
-            label_visibility="collapsed"
-        )
-
-        if input_mode == "🔍 输入书名":
-            book_name = st.text_input("书名", placeholder="例如：三体、活着、百年孤独...")
-            author = st.text_input("作者（可选）", placeholder="例如：刘慈欣、余华")
-
-            if st.button("✨ 生成概述与人物分析", type="primary", use_container_width=True):
-                if not book_name.strip():
-                    st.warning("请输入书名")
-                else:
-                    with st.spinner("正在整理书中信息..."):
-                        user_content = f"书名：{book_name}"
-                        if author.strip():
-                            user_content += f"\n作者：{author}"
-
-                        sys_prompt = """你是书籍分析助手。根据你确定知道的信息，为用户提供该书的【内容概述】和【主要人物分析】。
-
-## 📝 内容概述
-用2-4段话概括这本书的核心内容（背景、主要情节、主题思想）。如果这本书你不太熟悉，就写“本书未在数据库中，请切换到「粘贴内容」模式进行分析”。
-
-## 👥 人物分析
-列出书中2-5个主要人物，每个用1-2句话分析其性格、作用或成长弧。如果书中人物很少或没有明确人物，可写“本书主要不是以人物为中心”或基于已知信息分析。
-
-【严格规则】
-1. 只写你确定知道的内容！不确定就写“暂不确定”
-2. 绝不编造人物名字、情节或语录
-3. 说人话，别整学术腔
-4. 如果用户提供了作者，可以适当结合"""
-                        result = ask_ai([
-                            {"role": "system", "content": sys_prompt},
-                            {"role": "user", "content": user_content}
-                        ], "glm-4-flash", 0.3)
-                        st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
-
-        else:  # 粘贴内容模式
-            book_content = st.text_area("粘贴书籍内容片段", height=250, 
-                                        placeholder="请把书的原文或较长的内容介绍粘贴到这里，我会基于你提供的文字进行分析。\n\n至少需要几百字才能分析出人物。")
-            if st.button("✨ 分析此片段", type="primary", use_container_width=True):
-                if not book_content.strip():
-                    st.warning("请粘贴内容")
-                elif len(book_content.strip()) < 100:
-                    st.warning("内容太短，建议提供更多文字，以便准确分析概述和人物。")
-                else:
-                    with st.spinner("分析中..."):
-                        sys_prompt = """你是书籍分析助手。用户提供了一段书籍内容（可能是原文或内容介绍），请严格按照以下格式输出：
-
-## 📝 内容概述
-根据提供的文字，概括这段内容的核心情节、氛围或主题（2-3段）。
-
-## 👥 人物分析
-从这段文字中提取出现的人物，分析他们的特点、关系或作用。如果只出现1-2个角色就分析这些；如果没有明确人物，请说明“从这段内容中未发现具体人物”。
-
-【严格规则】
-1. 只能基于用户提供的内容进行分析，绝不要添加内容中没有的信息
-2. 不要编造人物名字或情节
-3. 输出要清晰、简洁、口语化"""
-                        result = ask_ai([
-                            {"role": "system", "content": sys_prompt},
-                            {"role": "user", "content": book_content}
-                        ], "glm-4-flash", 0.3)
-                        st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
-
-    # ===== 🏷️ AI起名 =====
+    # 🏷️ 起名
     elif func == "🏷️ 起名":
-        st.markdown("""
-        <div class="func-card">
-            <h3>🏷️ AI起名</h3>
-            <div class="desc">给品牌、产品、宠物起名字</div>
-        </div>
-        """, unsafe_allow_html=True)
-        name_type = st.selectbox("起名类型", ["品牌/店铺", "产品/APP", "宠物", "小说角色", "群名/网名"])
-        desc = st.text_input("描述一下", placeholder="比如：卖奶茶的店，面向年轻人，走国风路线")
-        count = st.slider("起几个", 3, 10, 5)
-        if st.button("✨ 起名", type="primary", use_container_width=True) and desc.strip():
-            with st.spinner("想名字中..."):
-                result = ask_ai([
-                    {"role": "system", "content": f"你是起名高手。给{name_type}起名，要有创意、好记、有寓意。每个名字附一句话解释。别整太文艺的，要接地气。"},
-                    {"role": "user", "content": f"给我起{count}个名字，要求：{desc}"}
-                ], "glm-4-flash", 0.9)
-                st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
+        st.markdown('<div class="func-card"><h3>🏷️ AI起名</h3></div>', unsafe_allow_html=True)
+        t = st.selectbox("类型", ["品牌", "宠物", "网名", "角色"])
+        desc = st.text_input("描述")
+        if st.button("开始起名", use_container_width=True):
+            res = ask_ai([
+                {"role":"system","content":"起名高手，简洁好记"},
+                {"role":"user","content":f"{t}：{desc}，起5个"}
+            ])
+            st.markdown(f'<div class="func-card">{res}</div>', unsafe_allow_html=True)
 
-    # ===== 📅 日常小助手 =====
+    # 📅 日常
     elif func == "📅 日常":
-        st.markdown("""
-        <div class="func-card">
-            <h3>📅 日常小助手</h3>
-            <div class="desc">生活里用得上的小工具</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        helper_type = st.selectbox("选一个", ["📋 清单生成", "🍽️ 今天吃什么", "💪 健身计划", "📖 读书推荐", "🎬 电影推荐"])
-
-        if helper_type == "📋 清单生成":
-            list_type = st.text_input("什么清单？", placeholder="比如：去苏州旅游3天的行李清单")
-            if st.button("✨ 生成清单", type="primary", use_container_width=True) and list_type.strip():
-                with st.spinner("整理中..."):
-                    result = ask_ai([
-                        {"role": "system", "content": "你是清单达人。生成详细实用的清单，分类列出，用复选框格式。别漏关键的。"},
-                        {"role": "user", "content": f"帮我生成：{list_type}"}
-                    ], "glm-4-flash", 0.5)
-                    st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
-
-        elif helper_type == "🍽️ 今天吃什么":
-            preference = st.text_input("口味/限制", placeholder="比如：不太辣、一人食、预算30")
-            if st.button("✨ 推荐", type="primary", use_container_width=True):
-                pref = preference if preference else "没有特别要求"
-                with st.spinner("想菜中..."):
-                    result = ask_ai([
-                        {"role": "system", "content": "你是美食推荐官。推荐3-5道菜，每道说一句推荐理由和简单做法。别整那些难的。"},
-                        {"role": "user", "content": f"推荐今天吃什么，要求：{pref}"}
-                    ], "glm-4-flash", 0.8)
-                    st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
-
-        elif helper_type == "💪 健身计划":
-            goal = st.text_input("你的目标", placeholder="比如：减脂、增肌、改善体态")
-            if st.button("✨ 生成计划", type="primary", use_container_width=True) and goal.strip():
-                with st.spinner("规划中..."):
-                    result = ask_ai([
-                        {"role": "system", "content": "你是健身教练。制定一周简易健身计划，适合新手，不用去健身房。用表格列出。动作要具体，组数次数写清楚。"},
-                        {"role": "user", "content": f"目标：{goal}，给我一周计划"}
-                    ], "glm-4-flash", 0.5)
-                    st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
-
-        elif helper_type == "📖 读书推荐":
-            genre = st.text_input("喜欢什么类型", placeholder="比如：科幻、心理学、历史")
-            if st.button("✨ 推荐", type="primary", use_container_width=True):
-                g = genre if genre else "不限"
-                with st.spinner("推荐中..."):
-                    result = ask_ai([
-                        {"role": "system", "content": "你是读书达人。推荐5本书，每本写一句话推荐理由和适合谁读。别推冷门的，要大众能找到的。"},
-                        {"role": "user", "content": f"推荐{g}类的书"}
-                    ], "glm-4-flash", 0.7)
-                    st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
-
-        elif helper_type == "🎬 电影推荐":
-            mood = st.text_input("想看什么感觉的", placeholder="比如：轻松搞笑、烧脑悬疑、治愈暖心")
-            if st.button("✨ 推荐", type="primary", use_container_width=True):
-                m = mood if mood else "不限"
-                with st.spinner("推荐中..."):
-                    result = ask_ai([
-                        {"role": "system", "content": "你是电影达人。推荐5部电影，每部写一句话推荐理由。优先推经典好片，别推烂片。"},
-                        {"role": "user", "content": f"推荐{m}的电影"}
-                    ], "glm-4-flash", 0.7)
-                    st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
-
+        st.markdown('<div class="func-card"><h3>📅 日常小助手</h3></div>', unsafe_allow_html=True)
+        tool = st.selectbox("工具", ["清单", "吃什么", "健身计划", "读书", "电影"])
+        txt = st.text_input("输入需求")
+        if st.button("生成", use_container_width=True):
+            res = ask_ai([
+                {"role":"system","content":"实用简洁"},
+                {"role":"user","content":f"{tool}：{txt}"}
+            ])
+            st.markdown(f'<div class="func-card">{res}</div>', unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
