@@ -12,7 +12,7 @@ from datetime import datetime
 try:
     API_KEY = st.secrets["API_KEY"]
 except:
-    API_KEY = ""4279ab216a1e4c8282b51f541aff703e.HJdsPUVWqGbMD7t0
+    API_KEY = "4279ab216a1e4c8282b51f541aff703e.HJdsPUVWqGbMD7t0"
 
 BASE_URL = "https://open.bigmodel.cn/api/paas/v4/"
 MODEL_NAME = "glm-4-flash"
