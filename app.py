@@ -1,6 +1,6 @@
 """
-小政AI助手 v4.0 清爽白主题 + 高对比度版
-电脑/手机通用 | 白背景+深色文字 | 高清晰度
+小政AI助手 v4.1 修复版
+已解决语法错误 + 清爽白主题 + 手机适配
 """
 import streamlit as st
 from openai import OpenAI
@@ -11,7 +11,7 @@ from openai import APIError, APIConnectionError, RateLimitError
 try:
     API_KEY = st.secrets["API_KEY"]
 except:
-    API_KEY = "4279ab216a1e4c8282b51f541aff703e.HJdsPUVWqGbMD7t0"
+    API_KEY = ""
 
 BASE_URL = "https://open.bigmodel.cn/api/paas/v4/"
 MODEL_NAME = "glm-4-flash"
@@ -70,12 +70,9 @@ def main():
         initial_sidebar_state="collapsed"
     )
 
-    # ======================
     # 清爽白主题 + 高对比度 CSS
-    # ======================
     st.markdown("""
     <style>
-    /* 全局基础样式 */
     * {
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
@@ -97,12 +94,10 @@ def main():
         padding: 8px 12px 80px 12px !important;
         margin: 0 auto !important;
     }
-    /* 文字清晰度优化 */
     body, .stMarkdown, .stTextInput, .stTextArea, .stButton, .stRadio, .stSelectbox {
         color: #1a1a1a !important;
         font-family: system-ui, -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif !important;
     }
-    /* 输入框固定底部 */
     .stChatInput {
         position: fixed;
         bottom: 0;
@@ -120,14 +115,12 @@ def main():
         border: 1.5px solid #e5e7eb !important;
         background: #f9fafb !important;
     }
-    /* 聊天气泡 */
     [data-testid="stChatMessageContent"] {
         font-size: 16px !important;
         line-height: 1.6 !important;
         padding: 8px 12px !important;
         color: #1a1a1a !important;
     }
-    /* 按钮配色优化 */
     .stButton > button {
         height: 48px !important;
         font-size: 16px !important;
@@ -144,7 +137,6 @@ def main():
         background: #f3f4f6 !important;
         color: #1a1a1a !important;
     }
-    /* 卡片样式 */
     .func-card {
         background: #ffffff !important;
         border-radius: 16px;
@@ -153,7 +145,6 @@ def main():
         border: 1px solid #e5e7eb;
         box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
-    /* 输入控件 */
     .stTextInput input, .stTextArea textarea {
         font-size: 16px !important;
         height: 48px !important;
@@ -162,11 +153,9 @@ def main():
         background: #ffffff !important;
         color: #1a1a1a !important;
     }
-    /* 导航栏文字 */
     h3, h4, h5, h6, .stTitle, .stHeader {
         color: #1a1a1a !important;
     }
-    /* 单选框、选择框文字 */
     .stRadio label, .stSelectbox label {
         color: #1a1a1a !important;
         font-size: 16px !important;
@@ -174,7 +163,7 @@ def main():
     </style>
     """, unsafe_allow_html=True)
 
-    # 初始化
+    # 初始化会话
     if "messages" not in st.session_state:
         today = datetime.now().strftime("%Y年%m月%d日")
         st.session_state.messages = [{"role": "system", "content": SYSTEM_PROMPT.format(date=today)}]
@@ -243,7 +232,7 @@ def main():
             if st.button("提取摘要", use_container_width=True):
                 res = ask_ai([
                     {"role":"system","content":"提取好词好句+概括"},
-                    {"role": "content":txt}
+                    {"role": "user", "content":txt}
                 ])
                 st.markdown(f'<div class="func-card">{res}</div>', unsafe_allow_html=True)
 
