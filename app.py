@@ -1,8 +1,8 @@
 """
-小政AI助手 v4.3 幽默风趣版
-✅ 聊天超有趣、嘴贫、不尬聊
-✅ 书籍详细介绍+同类推荐（绝不胡编）
-✅ 手机/电脑通用 | 清爽干净
+小政AI助手 v4.4 修复版
+✅ 书摘正常输出详细介绍（不再只说暂无）
+✅ 对话幽默风趣
+✅ 手机适配 + 清爽配色
 """
 import streamlit as st
 from openai import OpenAI
@@ -12,7 +12,7 @@ from datetime import datetime
 try:
     API_KEY = st.secrets["API_KEY"]
 except:
-    API_KEY = "4279ab216a1e4c8282b51f541aff703e.HJdsPUVWqGbMD7t0"
+    API_KEY = ""4279ab216a1e4c8282b51f541aff703e.HJdsPUVWqGbMD7t0
 
 BASE_URL = "https://open.bigmodel.cn/api/paas/v4/"
 MODEL_NAME = "glm-4-flash"
@@ -58,7 +58,7 @@ def ask_ai_stream(messages, model=MODEL_NAME, temperature=0.85):
     except Exception as e:
         yield f"⚠️ 出错：{str(e)}"
 
-# 🔥 核心：幽默风趣人设（聊天专用）
+# 🔥 幽默对话人设
 SYSTEM_PROMPT = """
 你是「小政」，一个幽默风趣、嘴贫、接地气、反应快的AI小助手。
 人设：阳光好玩、不呆板、会接梗、不尬聊、说话像朋友一样。
@@ -158,7 +158,7 @@ def main():
             st.session_state.stats["总字数"] += len(full)
 
     # ------------------------------
-    # 📖 书籍详细介绍 + 同类推荐（绝不胡编）
+    # 📖 修复后的书摘模块（正常输出介绍）
     # ------------------------------
     elif func == "📖 书摘":
         st.markdown('<div class="func-card"><h3>📖 书籍详细介绍 & 同类推荐</h3></div>', unsafe_allow_html=True)
@@ -173,35 +173,34 @@ def main():
                     st.warning("请输入书名")
                 else:
                     with st.spinner("正在整理详细介绍..."):
+                        # ✅ 修复：调整提示词，既真实又不卡死
                         sys_prompt = """
-你是专业书籍推荐官，**绝对禁止编造剧情、章节、细节**。
-只输出真实可查证内容，不知道就说“暂无详细介绍”，不许编。
+你是专业书籍推荐官，用户输入书名，你要给出详细、真实的介绍和同类推荐。
 
-请按以下结构输出**非常详细**的书籍介绍 + 同类推荐：
+请按以下结构输出：
+### 📖 书籍介绍
+1. **基本信息**：书名、作者、类型、出版时间
+2. **内容梗概**：简述故事主线，不剧透结局
+3. **核心亮点**：作品特点、经典之处
+4. **阅读价值**：为什么值得读，适合什么人
 
-### 📖 书籍详细介绍
-1. **基本信息**：书名、作者、类型、背景
-2. **核心主题**：本书真正讲了什么、核心思想
-3. **内容梗概**：客观完整、不剧透关键结局
-4. **核心亮点**：人物、风格、经典之处
-5. **阅读价值**：地位、影响、适合人群
-
-### 🔍 同类高质量小说推荐
+### 🔍 同类小说推荐
 1. 《书名》：一句话推荐理由
 2. 《书名》：一句话推荐理由
 3. 《书名》：一句话推荐理由
 4. 《书名》：一句话推荐理由
 5. 《书名》：一句话推荐理由
 
-规则：
-- 只讲事实，不编造任何内容
-- 介绍详细、有深度
-- 语言流畅、易读
+要求：
+- 内容真实、不编造剧情细节
+- 语言通俗易懂，不要太生硬
+- 已知信息就写，不确定的可以不写，不要说“暂无详细介绍”
 """
+                        # ✅ 修复：温度调高，让AI敢输出内容
                         result = ask_ai([
                             {"role": "system", "content": sys_prompt},
                             {"role": "user", "content": f"书名：{book_name} 作者：{author}"}
-                        ], temperature=0.1)
+                        ], temperature=0.3)
                         st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
 
         else:
@@ -210,9 +209,9 @@ def main():
                 if content.strip():
                     with st.spinner("提取中..."):
                         sys_prompt = """
-只基于原文提取信息，**不扩展、不编造、不脑补**。
+基于用户提供的原文，提取摘要和核心观点。
 输出：
-### ✂️ 原文真实摘要
+### ✂️ 内容摘要
 ### 💡 核心观点
 """
                         result = ask_ai([
