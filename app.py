@@ -1,8 +1,10 @@
 """
-小政AI助手 v4.7 深色/浅色模式自适应版
-✅ 自动跟随系统深色/浅色模式切换背景
-✅ 文字、按钮、卡片都适配对应模式
-✅ 所有模块低AI感、内容具体
+小政AI助手 最终版
+✅ 深浅色模式自动适配
+✅ 对话幽默、低AI感
+✅ 书籍介绍真实排版整洁
+✅ 起名自然接地气
+✅ 日常模块改为：朋友圈文案生成
 """
 import streamlit as st
 from openai import OpenAI
@@ -58,7 +60,7 @@ def ask_ai_stream(messages, model=MODEL_NAME, temperature=0.85):
     except Exception as e:
         yield f"⚠️ 出错：{str(e)}"
 
-# 🔥 幽默对话人设
+# 幽默对话人设
 SYSTEM_PROMPT = """
 你是「小政」，一个幽默风趣、嘴贫、接地气、反应快的AI小助手。
 人设：阳光好玩、不呆板、会接梗、不尬聊、说话像朋友一样。
@@ -80,24 +82,20 @@ def main():
         initial_sidebar_state="collapsed"
     )
 
-    # ======================
-    # ✅ 深色/浅色模式自适应 CSS
-    # ======================
+    # 深浅色模式自适应 CSS
     st.markdown("""
     <style>
-    /* 全局基础样式 */
     * {-webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;}
     #MainMenu, footer, header, .stDeployButton, [data-testid="stToolbar"] {
         display: none !important; height:0; visibility:hidden;
     }
 
-    /* 适配系统深色/浅色模式 */
     @media (prefers-color-scheme: light) {
         .stApp {background-color: #ffffff !important; color: #1a1a1a !important;}
         .block-container {padding:8px 12px 80px 12px; max-width:100%;}
         .func-card {background:#fff; border:1px solid #eee;}
         .stChatInput {background:#fff; border-top:1px solid #eee;}
-        .stChatInput>div>div>div {background:#f9f9f9; border:1px solid #eee;}
+        .stChatInput>div>div>div {background:#f9f9f9; border:1px solid #eee; color:#1a1a1a;}
         .stTextInput input, .stTextArea textarea {background:#fff; border:1px solid #eee; color:#1a1a1a;}
     }
 
@@ -110,7 +108,6 @@ def main():
         .stTextInput input, .stTextArea textarea {background:#161b22; border:1px solid #30363d; color:#f0f6fc;}
     }
 
-    /* 按钮样式（两种模式都适配） */
     .stButton>button {height:48px; border-radius:12px; font-size:16px;}
     .stButton>button[kind="primary"] {background:#2563eb; color:#fff; border:none;}
     .stButton>button[kind="secondary"] {background:transparent; color:inherit; border:1px solid #6e7681;}
@@ -118,7 +115,7 @@ def main():
     </style>
     """, unsafe_allow_html=True)
 
-    # 初始化
+    # 初始化会话
     if "messages" not in st.session_state:
         today = datetime.now().strftime("%Y年%m月%d日")
         st.session_state.messages = [{"role": "system", "content": SYSTEM_PROMPT.format(date=today)}]
@@ -129,7 +126,7 @@ def main():
 
     # 顶部导航
     st.markdown("### 🤖 小政 AI 助手")
-    nav_items = ["💬 对话", "📖 书摘", "🏷️ 起名", "📅 日常"]
+    nav_items = ["💬 对话", "📖 书摘", "🏷️ 起名", "📸 朋友圈文案"]
     cols = st.columns(4)
     for i, label in enumerate(nav_items):
         with cols[i]:
@@ -140,9 +137,7 @@ def main():
 
     func = st.session_state.current_func
 
-    # ------------------------------
-    # 💬 幽默对话模式
-    # ------------------------------
+    # 对话模块
     if func == "💬 对话":
         is_empty = all(m["role"] == "system" for m in st.session_state.messages)
         if is_empty:
@@ -171,9 +166,7 @@ def main():
             st.session_state.stats["对话次数"] += 1
             st.session_state.stats["总字数"] += len(full)
 
-    # ------------------------------
-    # 📖 书摘（排版整齐 + 口语化）
-    # ------------------------------
+    # 书摘模块
     elif func == "📖 书摘":
         st.markdown('<div class="func-card"><h3>📖 书籍介绍 & 同类推荐</h3></div>', unsafe_allow_html=True)
         input_mode = st.radio("模式", ["书名", "粘贴原文"], horizontal=True, label_visibility="collapsed")
@@ -226,9 +219,7 @@ def main():
                         ])
                         st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
 
-    # ------------------------------
-    # 🏷️ 起名（降低AI感，更自然）
-    # ------------------------------
+    # 起名模块
     elif func == "🏷️ 起名":
         st.markdown('<div class="func-card"><h3>🏷️ AI起名</h3></div>', unsafe_allow_html=True)
         kind = st.selectbox("类型", ["品牌/店铺", "宠物", "网名", "小说角色"])
@@ -250,29 +241,25 @@ def main():
                 ], temperature=0.9)
                 st.markdown(f'<div class="func-card">{res}</div>', unsafe_allow_html=True)
 
-    # ------------------------------
-    # 📅 日常小助手（更具体、可执行）
-    # ------------------------------
-    elif func == "📅 日常":
-        st.markdown('<div class="func-card"><h3>📅 日常小助手</h3></div>', unsafe_allow_html=True)
-        tool = st.selectbox("工具", ["清单", "吃什么", "健身计划","电影推荐"])
-        req = st.text_input("输入需求")
-        if st.button("🚀 生成", type="primary", use_container_width=True) and req:
-            with st.spinner("生成中..."):
+    # 朋友圈文案模块（替换原日常）
+    elif func == "📸 朋友圈文案":
+        st.markdown('<div class="func-card"><h3>📸 朋友圈文案生成</h3></div>', unsafe_allow_html=True)
+        style = st.selectbox("文案风格", ["日常随性", "文艺走心", "幽默搞笑", "简约短句", "氛围感"])
+        content = st.text_input("场景/内容描述", placeholder="例如：美食、出游、自拍、加班、傍晚风景等")
+        if st.button("✨ 生成文案", type="primary", use_container_width=True) and content:
+            with st.spinner("撰写文案中..."):
                 sys_prompt = f"""
-你是用户的专属生活助手，回答必须**具体、可执行、不笼统**，像朋友给的实用建议，别像机器写的报告。
-
+根据用户给出的场景，生成多条自然接地气的朋友圈文案。
+风格要求：{style}
 要求：
-1.  步骤清晰，能直接照着做
-2.  内容具体，不要说“准备食材”这种空话，要给出例子
-3.  语气自然，口语化，不要生硬
-4.  结构清楚，用换行分隔，不要挤成一团
-
-用户需求：{tool}：{req}
+1. 贴近日常，自然不生硬，没有明显AI感
+2. 分多条展示，长短搭配，方便直接复制使用
+3. 语气贴合对应风格，排版整洁，段落分明
+4. 不用复杂格式、多余符号，简洁舒服
 """
                 res = ask_ai([
                     {"role":"system","content":sys_prompt},
-                    {"role":"user","content":f"{tool}：{req}"}
+                    {"role":"user","content":f"场景：{content}，风格：{style}，生成朋友圈文案"}
                 ])
                 st.markdown(f'<div class="func-card">{res}</div>', unsafe_allow_html=True)
 
