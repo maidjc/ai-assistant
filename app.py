@@ -1,6 +1,7 @@
 """
-小政AI助手 v4.4 修复版
-✅ 书摘正常输出详细介绍（不再只说暂无）
+小政AI助手 v4.5 排版&口语化优化版
+✅ 书摘排版整齐，不挤成一团
+✅ 介绍口语化，不生硬，AI感低
 ✅ 对话幽默风趣
 ✅ 手机适配 + 清爽配色
 """
@@ -158,61 +159,54 @@ def main():
             st.session_state.stats["总字数"] += len(full)
 
     # ------------------------------
-    # 📖 修复后的书摘模块（正常输出介绍）
+    # 📖 排版整齐 + 口语化 书摘模块
     # ------------------------------
     elif func == "📖 书摘":
-        st.markdown('<div class="func-card"><h3>📖 书籍详细介绍 & 同类推荐</h3></div>', unsafe_allow_html=True)
+        st.markdown('<div class="func-card"><h3>📖 书籍介绍 & 同类推荐</h3></div>', unsafe_allow_html=True)
         input_mode = st.radio("模式", ["书名", "粘贴原文"], horizontal=True, label_visibility="collapsed")
 
         if input_mode == "书名":
             book_name = st.text_input("书名", placeholder="如：三体、活着、白夜行、百年孤独")
             author = st.text_input("作者（选填）")
 
-            if st.button("📚 获取详细介绍 & 推荐", type="primary", use_container_width=True):
+            if st.button("📚 获取介绍 & 推荐", type="primary", use_container_width=True):
                 if not book_name.strip():
                     st.warning("请输入书名")
                 else:
-                    with st.spinner("正在整理详细介绍..."):
-                        # ✅ 修复：调整提示词，既真实又不卡死
+                    with st.spinner("正在整理..."):
+                        # ✅ 关键优化：排版强制换行 + 口语化 + 低AI感
                         sys_prompt = """
-你是专业书籍推荐官，用户输入书名，你要给出详细、真实的介绍和同类推荐。
+你是一个爱看书的朋友，用轻松、口语化的方式给用户介绍一本书。
+不要用生硬的列表，也不要用太多Markdown符号，像聊天一样自然。
 
-请按以下结构输出：
-### 📖 书籍介绍
-1. **基本信息**：书名、作者、类型、出版时间
-2. **内容梗概**：简述故事主线，不剧透结局
-3. **核心亮点**：作品特点、经典之处
-4. **阅读价值**：为什么值得读，适合什么人
+内容必须包含这几块，但用自然的段落写出来：
+1.  基本信息：书名、作者、类型、大概的背景
+2.  内容梗概：用几句话讲清楚故事大概，不剧透结局
+3.  亮点&看点：这本书哪里好看、为什么出名
+4.  适合谁读：什么样的人会喜欢
 
-### 🔍 同类小说推荐
-1. 《书名》：一句话推荐理由
-2. 《书名》：一句话推荐理由
-3. 《书名》：一句话推荐理由
-4. 《书名》：一句话推荐理由
-5. 《书名》：一句话推荐理由
+然后再推荐几本风格类似的书，用简单的编号列出来就好。
 
 要求：
-- 内容真实、不编造剧情细节
-- 语言通俗易懂，不要太生硬
-- 已知信息就写，不确定的可以不写，不要说“暂无详细介绍”
+- 语气像朋友推荐，别像机器写的报告
+- 段落之间换行，不要挤成一团
+- 不要说“暂无详细介绍”，知道多少写多少
+- 不要用太多**加粗符号，只在关键地方用
 """
-                        # ✅ 修复：温度调高，让AI敢输出内容
                         result = ask_ai([
                             {"role": "system", "content": sys_prompt},
-                            {"role": "user", "content": f"书名：{book_name} 作者：{author}"}
-                        ], temperature=0.3)
+                            {"role": "user", "content": f"帮我介绍一下《{book_name}》，作者{author}"}
+                        ], temperature=0.6)
                         st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
 
         else:
             content = st.text_area("原文内容", height=200)
-            if st.button("✂️ 提取真实摘要", type="primary", use_container_width=True):
+            if st.button("✂️ 提取摘要", type="primary", use_container_width=True):
                 if content.strip():
                     with st.spinner("提取中..."):
                         sys_prompt = """
-基于用户提供的原文，提取摘要和核心观点。
-输出：
-### ✂️ 内容摘要
-### 💡 核心观点
+用轻松口语化的方式，帮用户整理这段文字的摘要和核心观点。
+段落之间换行，排版整齐，不要挤成一团。
 """
                         result = ask_ai([
                             {"role": "system", "content": sys_prompt},
