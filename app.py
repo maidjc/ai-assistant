@@ -1,9 +1,9 @@
 """
-小政AI助手 书香背景版
-✅ 书香古风背景+配色
-✅ 深浅色模式自适应
-✅ 对话幽默、书籍介绍、起名、朋友圈文案
-✅ 低AI感、排版整洁
+小政AI助手 书香背景优化版
+✅ 高清书香古风背景 + 磨砂半透图层
+✅ 深浅色模式完美适配
+✅ 四大功能：对话、书摘、起名、朋友圈文案
+✅ 文字清晰、视觉舒适、书香氛围拉满
 """
 import streamlit as st
 from openai import OpenAI
@@ -82,7 +82,7 @@ def main():
     )
 
     # ======================
-    # 书香风格 CSS + 古风背景 + 深浅色适配
+    # 书香背景 + 磨砂遮罩 + 深浅色适配（重点优化背景显示）
     # ======================
     st.markdown("""
     <style>
@@ -91,25 +91,40 @@ def main():
         display: none !important; height:0; visibility:hidden;
     }
 
-    /* 全局书香纹理背景 */
+    /* 全局书香宣纸纹理背景 + 固定全屏 */
     .stApp {
-        background-image: url("https://img0.baidu.com/it/u=1819380223,3813190239&fm=253&fmt=auto&app=138&f=JPEG?w=800&h=500");
+        background-image: url("https://pic.baike.soso.com/ugc/baikepic2/33722/20220418161345_92117.jpg/0");
         background-size: cover;
         background-attachment: fixed;
-        background-position: center;
+        background-position: center center;
+        background-repeat: no-repeat;
+    }
+
+    /* 全局半透明遮罩，弱化背景、保证文字清晰 */
+    .block-container::before {
+        content: "";
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: -1;
     }
 
     /* 浅色模式 - 书香米黄色系 */
     @media (prefers-color-scheme: light) {
+        .block-container::before {
+            background: rgba(255, 252, 240, 0.65);
+        }
         .stApp {color: #4b3f32 !important;}
         .block-container {padding:8px 12px 80px 12px; max-width:100%;}
         .func-card {
-            background: rgba(255,252,245,0.92) !important;
+            background: rgba(255,252,245,0.94) !important;
             border: 1px solid #d8c8b4 !important;
-            box-shadow: 0 2px 8px rgba(139,117,97,0.15);
+            box-shadow: 0 2px 10px rgba(139,117,97,0.2);
         }
         .stChatInput {
-            background: rgba(255,252,245,0.95) !important;
+            background: rgba(255,252,245,0.96) !important;
             border-top:1px solid #d8c8b4;
         }
         .stChatInput>div>div>div {
@@ -118,27 +133,30 @@ def main():
             color: #4b3f32;
         }
         .stTextInput input, .stTextArea textarea {
-            background: rgba(255,252,245,0.9) !important;
+            background: rgba(255,252,245,0.92) !important;
             border:1px solid #d8c8b4;
             color: #4b3f32;
         }
         div[data-testid="stChatMessage"] {
-            background: rgba(255,252,245,0.88) !important;
+            background: rgba(255,252,245,0.9) !important;
             border: 1px solid #e0d2bd;
         }
     }
 
     /* 深色模式 - 暗书香色系 */
     @media (prefers-color-scheme: dark) {
+        .block-container::before {
+            background: rgba(20, 18, 15, 0.75);
+        }
         .stApp {color: #e9e2d5 !important;}
         .block-container {padding:8px 12px 80px 12px; max-width:100%;}
         .func-card {
-            background: rgba(38,33,27,0.92) !important;
+            background: rgba(38,33,27,0.94) !important;
             border: 1px solid #6b5c4b !important;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.4);
         }
         .stChatInput {
-            background: rgba(38,33,27,0.95) !important;
+            background: rgba(38,33,27,0.96) !important;
             border-top:1px solid #6b5c4b;
         }
         .stChatInput>div>div>div {
@@ -147,17 +165,17 @@ def main():
             color: #e9e2d5;
         }
         .stTextInput input, .stTextArea textarea {
-            background: rgba(38,33,27,0.9) !important;
+            background: rgba(38,33,27,0.92) !important;
             border:1px solid #6b5c4b;
             color: #e9e2d5;
         }
         div[data-testid="stChatMessage"] {
-            background: rgba(38,33,27,0.88) !important;
+            background: rgba(38,33,27,0.9) !important;
             border: 1px solid #6b5c4b;
         }
     }
 
-    /* 按钮统一样式 书香风 */
+    /* 书香风按钮样式 */
     .stButton>button {
         height:48px;
         border-radius: 8px;
@@ -280,8 +298,7 @@ def main():
 段落之间换行，排版整齐，不要挤成一团。
 """
                         result = ask_ai([
-                            {"role": "system", "content": sys_prompt},
-                            {"role": "user", "content": content}
+                            {"role": "system", "content": content}
                         ])
                         st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
 
