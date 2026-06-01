@@ -1,9 +1,9 @@
 """
-小政AI助手 书香背景优化版
-✅ 高清书香古风背景 + 磨砂半透图层
-✅ 深浅色模式完美适配
+小政AI助手 书香完整版
+✅ 本地书香渐变背景（稳定显示，无需外网图片）
+✅ 全套古风书香按钮+控件美化
+✅ 深浅色模式自适应
 ✅ 四大功能：对话、书摘、起名、朋友圈文案
-✅ 文字清晰、视觉舒适、书香氛围拉满
 """
 import streamlit as st
 from openai import OpenAI
@@ -82,119 +82,141 @@ def main():
     )
 
     # ======================
-    # 书香背景 + 磨砂遮罩 + 深浅色适配（重点优化背景显示）
+    # 书香全局样式 + 本地渐变背景 + 古风按钮美化
     # ======================
     st.markdown("""
     <style>
-    * {-webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;}
+    * {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        font-family: "Microsoft Yahei", "SimSun", serif;
+    }
+
+    /* 隐藏原生控件 */
     #MainMenu, footer, header, .stDeployButton, [data-testid="stToolbar"] {
-        display: none !important; height:0; visibility:hidden;
+        display: none !important;
+        height: 0;
+        visibility: hidden;
     }
 
-    /* 全局书香宣纸纹理背景 + 固定全屏 */
+    /* ========== 书香渐变背景（本地生效，100%显示） ========== */
     .stApp {
-        background-image: url("https://pic.baike.soso.com/ugc/baikepic2/33722/20220418161345_92117.jpg/0");
-        background-size: cover;
+        background: linear-gradient(135deg, #f8f2e4 0%, #f0e6d2 50%, #e9dcc3 100%) !important;
         background-attachment: fixed;
-        background-position: center center;
-        background-repeat: no-repeat;
     }
 
-    /* 全局半透明遮罩，弱化背景、保证文字清晰 */
-    .block-container::before {
-        content: "";
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100vw;
-        height: 100vh;
-        z-index: -1;
-    }
-
-    /* 浅色模式 - 书香米黄色系 */
+    /* ========== 浅色模式 书香配色 ========== */
     @media (prefers-color-scheme: light) {
-        .block-container::before {
-            background: rgba(255, 252, 240, 0.65);
+        .stApp { color: #4a3f30 !important; }
+        .block-container {
+            padding: 12px 15px 80px 15px;
+            max-width: 100%;
         }
-        .stApp {color: #4b3f32 !important;}
-        .block-container {padding:8px 12px 80px 12px; max-width:100%;}
+        /* 卡片样式 书卷质感 */
         .func-card {
-            background: rgba(255,252,245,0.94) !important;
-            border: 1px solid #d8c8b4 !important;
-            box-shadow: 0 2px 10px rgba(139,117,97,0.2);
+            background: rgba(255, 253, 246, 0.92) !important;
+            border: 1px solid #d4c2a8 !important;
+            border-radius: 12px !important;
+            box-shadow: 0 3px 12px rgba(120, 95, 65, 0.18) !important;
         }
-        .stChatInput {
-            background: rgba(255,252,245,0.96) !important;
-            border-top:1px solid #d8c8b4;
-        }
-        .stChatInput>div>div>div {
-            background: #f8f1e3 !important;
-            border:1px solid #d8c8b4;
-            color: #4b3f32;
-        }
-        .stTextInput input, .stTextArea textarea {
-            background: rgba(255,252,245,0.92) !important;
-            border:1px solid #d8c8b4;
-            color: #4b3f32;
-        }
+        /* 聊天框 */
         div[data-testid="stChatMessage"] {
-            background: rgba(255,252,245,0.9) !important;
-            border: 1px solid #e0d2bd;
+            background: rgba(255, 253, 246, 0.9) !important;
+            border: 1px solid #d4c2a8 !important;
+            border-radius: 10px !important;
+        }
+        /* 底部输入框 */
+        .stChatInput {
+            background: rgba(255, 253, 246, 0.95) !important;
+            border-top: 1px solid #d4c2a8 !important;
+        }
+        .stChatInput > div > div > div {
+            background: #faf4e6 !important;
+            border: 1px solid #d4c2a8 !important;
+            border-radius: 20px !important;
+            color: #4a3f30;
+        }
+        /* 输入框、文本域 */
+        .stTextInput input, .stTextArea textarea, .stSelectbox > div > div {
+            background: rgba(255, 253, 246, 0.9) !important;
+            border: 1px solid #d4c2a8 !important;
+            border-radius: 8px !important;
+            color: #4a3f30 !important;
         }
     }
 
-    /* 深色模式 - 暗书香色系 */
+    /* ========== 深色模式 暗书香配色 ========== */
     @media (prefers-color-scheme: dark) {
-        .block-container::before {
-            background: rgba(20, 18, 15, 0.75);
+        .stApp {
+            background: linear-gradient(135deg, #2c261e 0%, #252018 50%, #1e1a14 100%) !important;
+            color: #e8dfcc !important;
         }
-        .stApp {color: #e9e2d5 !important;}
-        .block-container {padding:8px 12px 80px 12px; max-width:100%;}
+        .block-container {
+            padding: 12px 15px 80px 15px;
+            max-width: 100%;
+        }
         .func-card {
-            background: rgba(38,33,27,0.94) !important;
+            background: rgba(45, 39, 30, 0.92) !important;
             border: 1px solid #6b5c4b !important;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.4);
-        }
-        .stChatInput {
-            background: rgba(38,33,27,0.96) !important;
-            border-top:1px solid #6b5c4b;
-        }
-        .stChatInput>div>div>div {
-            background: #2d271f !important;
-            border:1px solid #6b5c4b;
-            color: #e9e2d5;
-        }
-        .stTextInput input, .stTextArea textarea {
-            background: rgba(38,33,27,0.92) !important;
-            border:1px solid #6b5c4b;
-            color: #e9e2d5;
+            border-radius: 12px !important;
+            box-shadow: 0 3px 12px rgba(0, 0, 0, 0.35) !important;
         }
         div[data-testid="stChatMessage"] {
-            background: rgba(38,33,27,0.9) !important;
-            border: 1px solid #6b5c4b;
+            background: rgba(45, 39, 30, 0.9) !important;
+            border: 1px solid #6b5c4b !important;
+            border-radius: 10px !important;
+        }
+        .stChatInput {
+            background: rgba(45, 39, 30, 0.95) !important;
+            border-top: 1px solid #6b5c4b !important;
+        }
+        .stChatInput > div > div > div {
+            background: #332c22 !important;
+            border: 1px solid #6b5c4b !important;
+            border-radius: 20px !important;
+            color: #e8dfcc;
+        }
+        .stTextInput input, .stTextArea textarea, .stSelectbox > div > div {
+            background: rgba(45, 39, 30, 0.9) !important;
+            border: 1px solid #6b5c4b !important;
+            border-radius: 8px !important;
+            color: #e8dfcc !important;
         }
     }
 
-    /* 书香风按钮样式 */
-    .stButton>button {
-        height:48px;
-        border-radius: 8px;
-        font-size:16px;
-        font-weight: 500;
+    /* ========== 全局书香风格按钮（重点美化） ========== */
+    .stButton > button {
+        height: 44px !important;
+        border-radius: 10px !important;
+        font-size: 15px !important;
+        font-weight: 500 !important;
+        letter-spacing: 1px !important;
+        transition: all 0.25s ease !important;
     }
-    .stButton>button[kind="primary"] {
-        background: #8c6d4e !important;
-        color: #fff !important;
-        border:none;
+
+    /* 主按钮 - 深棕古风 */
+    .stButton > button[kind="primary"] {
+        background: #82674b !important;
+        color: #fff8e8 !important;
+        border: none !important;
+        box-shadow: 0 2px 6px rgba(110, 80, 50, 0.25) !important;
     }
-    .stButton>button[kind="secondary"] {
-        background:transparent;
-        color:inherit;
-        border:1px solid #b8a58e;
+    .stButton > button[kind="primary"]:hover {
+        background: #6d543c !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 4px 10px rgba(110, 80, 50, 0.35) !important;
     }
-    .stButton>button[kind="secondary"]:hover {
-        border-color:#8c6d4e;
-        color:#8c6d4e;
+
+    /* 次按钮/导航按钮 - 描边古风 */
+    .stButton > button[kind="secondary"] {
+        background: transparent !important;
+        color: inherit !important;
+        border: 1px solid #b8a48c !important;
+    }
+    .stButton > button[kind="secondary"]:hover {
+        border-color: #82674b !important;
+        color: #82674b !important;
+        transform: translateY(-1px) !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -221,7 +243,7 @@ def main():
 
     func = st.session_state.current_func
 
-    # 对话模块
+    # ---------------- 对话模块 ----------------
     if func == "💬 对话":
         is_empty = all(m["role"] == "system" for m in st.session_state.messages)
         if is_empty:
@@ -250,7 +272,7 @@ def main():
             st.session_state.stats["对话次数"] += 1
             st.session_state.stats["总字数"] += len(full)
 
-    # 书摘模块
+    # ---------------- 书摘模块 ----------------
     elif func == "📖 书摘":
         st.markdown('<div class="func-card"><h3>📖 书籍介绍 & 同类推荐</h3></div>', unsafe_allow_html=True)
         input_mode = st.radio("模式", ["书名", "粘贴原文"], horizontal=True, label_visibility="collapsed")
@@ -302,7 +324,7 @@ def main():
                         ])
                         st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
 
-    # 起名模块
+    # ---------------- 起名模块 ----------------
     elif func == "🏷️ 起名":
         st.markdown('<div class="func-card"><h3>🏷️ AI起名</h3></div>', unsafe_allow_html=True)
         kind = st.selectbox("类型", ["品牌/店铺", "宠物", "网名", "小说角色"])
@@ -324,7 +346,7 @@ def main():
                 ], temperature=0.9)
                 st.markdown(f'<div class="func-card">{res}</div>', unsafe_allow_html=True)
 
-    # 朋友圈文案模块
+    # ---------------- 朋友圈文案模块 ----------------
     elif func == "📸 朋友圈文案":
         st.markdown('<div class="func-card"><h3>📸 朋友圈文案生成</h3></div>', unsafe_allow_html=True)
         style = st.selectbox("文案风格", ["日常随性", "文艺走心", "幽默搞笑", "简约短句", "氛围感"])
