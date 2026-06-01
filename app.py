@@ -255,7 +255,7 @@ def main():
     # ------------------------------
     elif func == "📅 日常":
         st.markdown('<div class="func-card"><h3>📅 日常小助手</h3></div>', unsafe_allow_html=True)
-        tool = st.selectbox("工具", ["清单", "吃什么", "健身计划", "读书推荐", "电影推荐"])
+        tool = st.selectbox("工具", ["清单", "吃什么", "健身计划","电影推荐"])
         req = st.text_input("输入需求")
         if st.button("🚀 生成", type="primary", use_container_width=True) and req:
             with st.spinner("生成中..."):
