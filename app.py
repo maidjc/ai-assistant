@@ -1,9 +1,8 @@
 """
-小政AI助手 v4.6 起名&日常优化版
-✅ 起名、日常模块降低AI感，更自然
-✅ 日常助手回答更具体、可执行，不笼统
-✅ 书摘排版整齐、口语化
-✅ 对话幽默风趣
+小政AI助手 v4.7 深色/浅色模式自适应版
+✅ 自动跟随系统深色/浅色模式切换背景
+✅ 文字、按钮、卡片都适配对应模式
+✅ 所有模块低AI感、内容具体
 """
 import streamlit as st
 from openai import OpenAI
@@ -81,27 +80,41 @@ def main():
         initial_sidebar_state="collapsed"
     )
 
-    # 清爽白主题 CSS
+    # ======================
+    # ✅ 深色/浅色模式自适应 CSS
+    # ======================
     st.markdown("""
     <style>
-    * {-webkit-font-smoothing: antialiased;}
+    /* 全局基础样式 */
+    * {-webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;}
     #MainMenu, footer, header, .stDeployButton, [data-testid="stToolbar"] {
         display: none !important; height:0; visibility:hidden;
     }
-    .stApp {background:#fff;}
-    .block-container {padding:8px 12px 80px 12px; max-width:100%;}
-    .stChatInput {
-        position:fixed; bottom:0; left:0; right:0;
-        background:#fff; padding:8px 12px; z-index:999;
-        border-top:1px solid #eee;
+
+    /* 适配系统深色/浅色模式 */
+    @media (prefers-color-scheme: light) {
+        .stApp {background-color: #ffffff !important; color: #1a1a1a !important;}
+        .block-container {padding:8px 12px 80px 12px; max-width:100%;}
+        .func-card {background:#fff; border:1px solid #eee;}
+        .stChatInput {background:#fff; border-top:1px solid #eee;}
+        .stChatInput>div>div>div {background:#f9f9f9; border:1px solid #eee;}
+        .stTextInput input, .stTextArea textarea {background:#fff; border:1px solid #eee; color:#1a1a1a;}
     }
-    .stChatInput>div>div>div {border-radius:24px; height:46px; background:#f9f9f9;}
+
+    @media (prefers-color-scheme: dark) {
+        .stApp {background-color: #0e1117 !important; color: #f0f6fc !important;}
+        .block-container {padding:8px 12px 80px 12px; max-width:100%;}
+        .func-card {background:#161b22; border:1px solid #30363d;}
+        .stChatInput {background:#161b22; border-top:1px solid #30363d;}
+        .stChatInput>div>div>div {background:#21262d; border:1px solid #30363d; color:#f0f6fc;}
+        .stTextInput input, .stTextArea textarea {background:#161b22; border:1px solid #30363d; color:#f0f6fc;}
+    }
+
+    /* 按钮样式（两种模式都适配） */
     .stButton>button {height:48px; border-radius:12px; font-size:16px;}
-    .stButton>button[kind="primary"] {background:#2563eb; color:#fff;}
-    .func-card {
-        background:#fff; border-radius:16px; padding:16px;
-        margin:8px 0; border:1px solid #eee;
-    }
+    .stButton>button[kind="primary"] {background:#2563eb; color:#fff; border:none;}
+    .stButton>button[kind="secondary"] {background:transparent; color:inherit; border:1px solid #6e7681;}
+    .stButton>button[kind="secondary"]:hover {border-color:#2563eb; color:#2563eb;}
     </style>
     """, unsafe_allow_html=True)
 
@@ -223,7 +236,6 @@ def main():
         num = st.slider("数量", 3, 10, 5)
         if st.button("✨ 开始起名", type="primary", use_container_width=True) and desc:
             with st.spinner("构思中..."):
-                # ✅ 优化：降低AI感，更自然
                 sys_prompt = f"""
 你是起名高手，给用户推荐{num}个名字，要求：
 - 风格：{kind}
@@ -239,7 +251,7 @@ def main():
                 st.markdown(f'<div class="func-card">{res}</div>', unsafe_allow_html=True)
 
     # ------------------------------
-    # 📅 日常小助手（更具体、可执行，不笼统）
+    # 📅 日常小助手（更具体、可执行）
     # ------------------------------
     elif func == "📅 日常":
         st.markdown('<div class="func-card"><h3>📅 日常小助手</h3></div>', unsafe_allow_html=True)
@@ -247,7 +259,6 @@ def main():
         req = st.text_input("输入需求")
         if st.button("🚀 生成", type="primary", use_container_width=True) and req:
             with st.spinner("生成中..."):
-                # ✅ 关键优化：强制具体、可执行、步骤清晰
                 sys_prompt = f"""
 你是用户的专属生活助手，回答必须**具体、可执行、不笼统**，像朋友给的实用建议，别像机器写的报告。
 
