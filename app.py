@@ -1,10 +1,9 @@
 """
-小政AI助手 最终版
-✅ 深浅色模式自动适配
-✅ 对话幽默、低AI感
-✅ 书籍介绍真实排版整洁
-✅ 起名自然接地气
-✅ 日常模块改为：朋友圈文案生成
+小政AI助手 书香背景版
+✅ 书香古风背景+配色
+✅ 深浅色模式自适应
+✅ 对话幽默、书籍介绍、起名、朋友圈文案
+✅ 低AI感、排版整洁
 """
 import streamlit as st
 from openai import OpenAI
@@ -77,12 +76,14 @@ SYSTEM_PROMPT = """
 def main():
     st.set_page_config(
         page_title="小政",
-        page_icon="🤖",
+        page_icon="📜",
         layout="centered",
         initial_sidebar_state="collapsed"
     )
 
-    # 深浅色模式自适应 CSS
+    # ======================
+    # 书香风格 CSS + 古风背景 + 深浅色适配
+    # ======================
     st.markdown("""
     <style>
     * {-webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;}
@@ -90,28 +91,93 @@ def main():
         display: none !important; height:0; visibility:hidden;
     }
 
+    /* 全局书香纹理背景 */
+    .stApp {
+        background-image: url("https://img0.baidu.com/it/u=1819380223,3813190239&fm=253&fmt=auto&app=138&f=JPEG?w=800&h=500");
+        background-size: cover;
+        background-attachment: fixed;
+        background-position: center;
+    }
+
+    /* 浅色模式 - 书香米黄色系 */
     @media (prefers-color-scheme: light) {
-        .stApp {background-color: #ffffff !important; color: #1a1a1a !important;}
+        .stApp {color: #4b3f32 !important;}
         .block-container {padding:8px 12px 80px 12px; max-width:100%;}
-        .func-card {background:#fff; border:1px solid #eee;}
-        .stChatInput {background:#fff; border-top:1px solid #eee;}
-        .stChatInput>div>div>div {background:#f9f9f9; border:1px solid #eee; color:#1a1a1a;}
-        .stTextInput input, .stTextArea textarea {background:#fff; border:1px solid #eee; color:#1a1a1a;}
+        .func-card {
+            background: rgba(255,252,245,0.92) !important;
+            border: 1px solid #d8c8b4 !important;
+            box-shadow: 0 2px 8px rgba(139,117,97,0.15);
+        }
+        .stChatInput {
+            background: rgba(255,252,245,0.95) !important;
+            border-top:1px solid #d8c8b4;
+        }
+        .stChatInput>div>div>div {
+            background: #f8f1e3 !important;
+            border:1px solid #d8c8b4;
+            color: #4b3f32;
+        }
+        .stTextInput input, .stTextArea textarea {
+            background: rgba(255,252,245,0.9) !important;
+            border:1px solid #d8c8b4;
+            color: #4b3f32;
+        }
+        div[data-testid="stChatMessage"] {
+            background: rgba(255,252,245,0.88) !important;
+            border: 1px solid #e0d2bd;
+        }
     }
 
+    /* 深色模式 - 暗书香色系 */
     @media (prefers-color-scheme: dark) {
-        .stApp {background-color: #0e1117 !important; color: #f0f6fc !important;}
+        .stApp {color: #e9e2d5 !important;}
         .block-container {padding:8px 12px 80px 12px; max-width:100%;}
-        .func-card {background:#161b22; border:1px solid #30363d;}
-        .stChatInput {background:#161b22; border-top:1px solid #30363d;}
-        .stChatInput>div>div>div {background:#21262d; border:1px solid #30363d; color:#f0f6fc;}
-        .stTextInput input, .stTextArea textarea {background:#161b22; border:1px solid #30363d; color:#f0f6fc;}
+        .func-card {
+            background: rgba(38,33,27,0.92) !important;
+            border: 1px solid #6b5c4b !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+        .stChatInput {
+            background: rgba(38,33,27,0.95) !important;
+            border-top:1px solid #6b5c4b;
+        }
+        .stChatInput>div>div>div {
+            background: #2d271f !important;
+            border:1px solid #6b5c4b;
+            color: #e9e2d5;
+        }
+        .stTextInput input, .stTextArea textarea {
+            background: rgba(38,33,27,0.9) !important;
+            border:1px solid #6b5c4b;
+            color: #e9e2d5;
+        }
+        div[data-testid="stChatMessage"] {
+            background: rgba(38,33,27,0.88) !important;
+            border: 1px solid #6b5c4b;
+        }
     }
 
-    .stButton>button {height:48px; border-radius:12px; font-size:16px;}
-    .stButton>button[kind="primary"] {background:#2563eb; color:#fff; border:none;}
-    .stButton>button[kind="secondary"] {background:transparent; color:inherit; border:1px solid #6e7681;}
-    .stButton>button[kind="secondary"]:hover {border-color:#2563eb; color:#2563eb;}
+    /* 按钮统一样式 书香风 */
+    .stButton>button {
+        height:48px;
+        border-radius: 8px;
+        font-size:16px;
+        font-weight: 500;
+    }
+    .stButton>button[kind="primary"] {
+        background: #8c6d4e !important;
+        color: #fff !important;
+        border:none;
+    }
+    .stButton>button[kind="secondary"] {
+        background:transparent;
+        color:inherit;
+        border:1px solid #b8a58e;
+    }
+    .stButton>button[kind="secondary"]:hover {
+        border-color:#8c6d4e;
+        color:#8c6d4e;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -125,7 +191,7 @@ def main():
         st.session_state.current_func = "💬 对话"
 
     # 顶部导航
-    st.markdown("### 🤖 小政 AI 助手")
+    st.markdown("### 📜 小政 AI 助手")
     nav_items = ["💬 对话", "📖 书摘", "🏷️ 起名", "📸 朋友圈文案"]
     cols = st.columns(4)
     for i, label in enumerate(nav_items):
@@ -241,7 +307,7 @@ def main():
                 ], temperature=0.9)
                 st.markdown(f'<div class="func-card">{res}</div>', unsafe_allow_html=True)
 
-    # 朋友圈文案模块（替换原日常）
+    # 朋友圈文案模块
     elif func == "📸 朋友圈文案":
         st.markdown('<div class="func-card"><h3>📸 朋友圈文案生成</h3></div>', unsafe_allow_html=True)
         style = st.selectbox("文案风格", ["日常随性", "文艺走心", "幽默搞笑", "简约短句", "氛围感"])
