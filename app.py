@@ -1,9 +1,9 @@
 """
-小政AI助手 v4.5 排版&口语化优化版
-✅ 书摘排版整齐，不挤成一团
-✅ 介绍口语化，不生硬，AI感低
+小政AI助手 v4.6 起名&日常优化版
+✅ 起名、日常模块降低AI感，更自然
+✅ 日常助手回答更具体、可执行，不笼统
+✅ 书摘排版整齐、口语化
 ✅ 对话幽默风趣
-✅ 手机适配 + 清爽配色
 """
 import streamlit as st
 from openai import OpenAI
@@ -159,7 +159,7 @@ def main():
             st.session_state.stats["总字数"] += len(full)
 
     # ------------------------------
-    # 📖 排版整齐 + 口语化 书摘模块
+    # 📖 书摘（排版整齐 + 口语化）
     # ------------------------------
     elif func == "📖 书摘":
         st.markdown('<div class="func-card"><h3>📖 书籍介绍 & 同类推荐</h3></div>', unsafe_allow_html=True)
@@ -174,7 +174,6 @@ def main():
                     st.warning("请输入书名")
                 else:
                     with st.spinner("正在整理..."):
-                        # ✅ 关键优化：排版强制换行 + 口语化 + 低AI感
                         sys_prompt = """
 你是一个爱看书的朋友，用轻松、口语化的方式给用户介绍一本书。
 不要用生硬的列表，也不要用太多Markdown符号，像聊天一样自然。
@@ -215,7 +214,7 @@ def main():
                         st.markdown(f'<div class="func-card">{result}</div>', unsafe_allow_html=True)
 
     # ------------------------------
-    # 🏷️ AI起名
+    # 🏷️ 起名（降低AI感，更自然）
     # ------------------------------
     elif func == "🏷️ 起名":
         st.markdown('<div class="func-card"><h3>🏷️ AI起名</h3></div>', unsafe_allow_html=True)
@@ -224,14 +223,23 @@ def main():
         num = st.slider("数量", 3, 10, 5)
         if st.button("✨ 开始起名", type="primary", use_container_width=True) and desc:
             with st.spinner("构思中..."):
+                # ✅ 优化：降低AI感，更自然
+                sys_prompt = f"""
+你是起名高手，给用户推荐{num}个名字，要求：
+- 风格：{kind}
+- 特点：{desc}
+- 每个名字附一句简短的解释，别太官方，像朋友推荐一样
+- 不要用**加粗符号，也不要用太生硬的格式
+- 直接按顺序列出来就行，不要多余的格式
+"""
                 res = ask_ai([
-                    {"role":"system","content":"起名简洁、好记、有寓意，附一句话解释"},
-                    {"role":"user","content":f"给{kind}起{num}个名字，要求：{desc}"}
+                    {"role":"system","content":sys_prompt},
+                    {"role":"user","content":f"给{kind}起{num}个名字，风格：{desc}"}
                 ], temperature=0.9)
                 st.markdown(f'<div class="func-card">{res}</div>', unsafe_allow_html=True)
 
     # ------------------------------
-    # 📅 日常小助手
+    # 📅 日常小助手（更具体、可执行，不笼统）
     # ------------------------------
     elif func == "📅 日常":
         st.markdown('<div class="func-card"><h3>📅 日常小助手</h3></div>', unsafe_allow_html=True)
@@ -239,8 +247,20 @@ def main():
         req = st.text_input("输入需求")
         if st.button("🚀 生成", type="primary", use_container_width=True) and req:
             with st.spinner("生成中..."):
+                # ✅ 关键优化：强制具体、可执行、步骤清晰
+                sys_prompt = f"""
+你是用户的专属生活助手，回答必须**具体、可执行、不笼统**，像朋友给的实用建议，别像机器写的报告。
+
+要求：
+1.  步骤清晰，能直接照着做
+2.  内容具体，不要说“准备食材”这种空话，要给出例子
+3.  语气自然，口语化，不要生硬
+4.  结构清楚，用换行分隔，不要挤成一团
+
+用户需求：{tool}：{req}
+"""
                 res = ask_ai([
-                    {"role":"system","content":"简洁实用、步骤清晰、不啰嗦"},
+                    {"role":"system","content":sys_prompt},
                     {"role":"user","content":f"{tool}：{req}"}
                 ])
                 st.markdown(f'<div class="func-card">{res}</div>', unsafe_allow_html=True)
