@@ -1,5 +1,5 @@
 """
-小政AI｜1.启动先提示登录才可使用 2.管理员新增用户列表查看功能
+小政AI｜1.启动先登录 2.管理员用户列表 3.恢复原版书摘（自带同类推荐）
 默认管理员：admin / 123456
 """
 import streamlit as st
@@ -148,6 +148,7 @@ if "pop_login" not in st.session_state:st.session_state.pop_login=False
 if "pop_reg" not in st.session_state:st.session_state.pop_reg=False
 if "pop_reset" not in st.session_state:st.session_state.pop_reset=False
 if "pop_adduser" not in st.session_state:st.session_state.pop_adduser=False
+if "show_userlist" not in st.session_state:st.session_state.show_userlist=False
 
 #====================未登录拦截：启动必须先登录====================
 if not st.session_state.login:
@@ -227,7 +228,7 @@ with user_bar[4]:
         st.rerun()
 
 #管理员查看用户列表弹窗
-if st.session_state.get("show_userlist",False) and st.session_state.user_role=="manager":
+if st.session_state.show_userlist and st.session_state.user_role=="manager":
     with st.expander("👥全部用户管理列表",expanded=True):
         alluser=get_all_user()
         st.markdown("|ID|用户名|权限|注册时间|")
@@ -256,7 +257,7 @@ for idx,name in enumerate(nav_items):
             st.rerun()
 func=st.session_state.current_func
 
-#对话
+# 1.对话
 if func=="💬 对话":
     if "chat_history" not in st.session_state:st.session_state.chat_history=[]
     for i in st.session_state.chat_history:
@@ -271,19 +272,19 @@ if func=="💬 对话":
         with st.chat_message("assistant"):st.markdown(ans)
         add_sql("chat",[msg,ans])
 
-#书摘
+# 2.书摘【恢复原版：介绍+同类书籍推荐】
 elif func=="📖 书摘":
     st.markdown('<div class="func-card"><h3>📖 书籍介绍 & 同类推荐</h3></div>',unsafe_allow_html=True)
-    bk=st.text_input("书名")
-    aut=st.text_input("作者（选填）")
-    if st.button("📚 获取介绍",type="primary") and bk:
-        with st.spinner("生成中..."):
-            rep=client.chat.completions.create(model=MODEL_NAME,messages=[{"role":"system","content":SYSTEM_PROMPT},{"role":"user","content":f"介绍《{bk}》作者{aut}"}])
-            txt=rep.choices[0].message.content
-            st.markdown(txt)
-            add_sql("book",[bk,aut,txt])
+    book_name = st.text_input("书名")
+    author = st.text_input("作者（选填）")
+    if st.button("📚 获取介绍", type="primary") and book_name:
+        with st.spinner("整理内容中..."):
+            ask = f"详细介绍《{book_name}》作者{author}，包含基础信息、梗概、亮点、适合人群，顺带推荐同类好书，语言生活化。"
+            ans = client.chat.completions.create(model=MODEL_NAME,messages=[{"role":"system","content":SYSTEM_PROMPT},{"role":"user","content":ask}]).choices[0].message.content
+            st.markdown(ans)
+            add_sql("book", [book_name, author, ans])
 
-#起名
+# 3.起名
 elif func=="🏷️ 起名":
     st.markdown('<div class="func-card"><h3>🏷️ AI起名</h3></div>',unsafe_allow_html=True)
     typ=st.selectbox("类型",["品牌店铺","宠物名字","网名笔名","小说角色"])
@@ -296,7 +297,7 @@ elif func=="🏷️ 起名":
             st.markdown(txt)
             add_sql("name",[typ,desc,txt])
 
-#朋友圈文案
+# 4.朋友圈文案
 elif func=="📸 朋友圈文案":
     st.markdown('<div class="func-card"><h3>📸 朋友圈文案生成</h3></div>',unsafe_allow_html=True)
     sty=st.selectbox("风格",["日常随性","文艺走心","幽默搞笑","简约短句","氛围感"])
@@ -308,7 +309,7 @@ elif func=="📸 朋友圈文案":
             st.markdown(txt)
             add_sql("art",[sty,scene,txt])
 
-#存档仅管理员
+# 5.存档（仅管理员）
 elif func=="📂 我的存档":
     if st.session_state.user_role=="manager":
         st.markdown('<div class="func-card"><h3>📂 全量内容存档</h3></div>',unsafe_allow_html=True)
@@ -340,7 +341,7 @@ elif func=="📂 我的存档":
     else:
         st.warning("仅管理员可查看存档")
 
-#修改密码弹窗
+# 修改密码弹窗
 if st.session_state.pop_reset:
     with st.expander("🔑 修改密码",expanded=True):
         np=st.text_input("新密码",type="password",key="newp")
