@@ -1,7 +1,6 @@
 """
-小政AI书香助手完整版
-功能：用户注册/登录/密码重置｜管理员后台｜四大AI功能｜分用户独立本地存储｜书香界面
-管理员账号：admin  初始密码：123456
+小政AI书香助手｜修复sqlite插入参数报错
+管理员账号：admin  密码：123456
 """
 import streamlit as st
 from openai import OpenAI
@@ -102,7 +101,7 @@ def get_all_users():
     conn.close()
     return all_data
 
-# ===================== 业务数据增删改查 =====================
+# ===================== 【已修复】业务数据增删改查 =====================
 def insert_data(table,data_list,uid):
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
     conn = sqlite3.connect("user_data.db")
@@ -114,7 +113,8 @@ def insert_data(table,data_list,uid):
     elif table == "art":
         cur.execute("INSERT INTO art_record(user_id,style,scene,content,create_time) VALUES(?,?,?,?,?)",(uid,*data_list,now))
     elif table == "chat":
-        cur.execute("INSERT INTO chat_record(user_id,ask,reply,create_time) VALUES(?,?,?,?)",(uid,*data_list,now))
+        # chat固定4字段：user_id、ask、reply、time
+        cur.execute("INSERT INTO chat_record(user_id,ask,reply,create_time) VALUES(?,?,?,?)",(uid,data_list[0],data_list[1],now))
     conn.commit()
     conn.close()
 
@@ -274,6 +274,7 @@ if current_page == "💬 对话":
         st.session_state.chat_log.append({"role":"assistant","content":ans_txt})
         with st.chat_message("assistant"):
             st.markdown(ans_txt)
+        # 传参固定[提问,回答]
         insert_data("chat",[ask_txt,ans_txt],uid)
 
 # ===================== 2.书摘模块 =====================
