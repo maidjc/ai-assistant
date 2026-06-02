@@ -1,15 +1,23 @@
 [server]
 enableCORS = false
 enableXsrfProtection = false
-# 新增关键提速：关闭文件监听，大幅缩短启动耗时
 fileWatcherType = "none"
 
 [browser]
 gatherUsageStats = false
 
-[theme]
+# 浅色主题（系统浅色时启用：清新绿色）
+[theme.light]
 base = "light"
-primaryColor = "#7C3AED"
-backgroundColor = "#ffffff"
-secondaryBackgroundColor = "#f7f7f8"
-textColor = "#111111"
+primaryColor = "#2E7D32"
+backgroundColor = "#F1F8E9"
+secondaryBackgroundColor = "#E8F5E9"
+textColor = "#263238"
+
+# 深色主题（系统深色时启用：复古书香棕）
+[theme.dark]
+base = "dark"
+primaryColor = "#82674B"
+backgroundColor = "#2C261E"
+secondaryBackgroundColor = "#393228"
+textColor = "#E8DFCC"
