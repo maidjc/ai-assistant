@@ -1,19 +1,15 @@
-"""小政AI｜1.管理员删用户(禁删admin) 2.北京时间 3.浅绿/深色书香 提速版"""
+"""小政AI｜新增管理员删除用户 + 浅绿/深色书香主题+提速优化+强制登录"""
 import streamlit as st
 from openai import OpenAI
-import sqlite3
 from datetime import datetime
-import pytz
+import sqlite3
 
-# 固定北京时间
-tz_bj = pytz.timezone("Asia/Shanghai")
-def get_bj_now():
-    return datetime.now(tz_bj).strftime("%Y-%m-%d %H:%M")
-
+# ==========全局常量只初始化一次==========
 SYSTEM_PROMPT = """你是「小政」，风趣随和、接地气，日常聊天自然不生硬，无AI机械话术；书摘通俗口语、起名简约有寓意、朋友圈文案贴合风格。"""
 BASE_URL = "https://open.bigmodel.cn/api/paas/v4/"
 MODEL_NAME = "glm-4-flash"
 
+# 单例标记：数据库只初始化1次
 if "db_inited" not in st.session_state:
     st.session_state.db_inited = False
 
@@ -36,14 +32,14 @@ def init_db():
     cur.execute('''CREATE TABLE IF NOT EXISTS user_info(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE,password TEXT,role TEXT,create_time TEXT)''')
-    # 管理员默认注册时间=北京时间
+    # 内置超级管理员admin禁止删除
     cur.execute("INSERT OR IGNORE INTO user_info(username,password,role,create_time) VALUES(?,?,?,?)",
-                ("admin","123456","manager",get_bj_now()))
+                ("admin","123456","manager",datetime.now().strftime("%Y-%m-%d %H:%M")))
     conn.commit()
     conn.close()
 
 def add_sql(table, data):
-    now = get_bj_now()
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
     conn = sqlite3.connect("user_data.db", check_same_thread=False)
     cur = conn.cursor()
     sql_map = {
@@ -99,7 +95,7 @@ def reset_pwd(uname,new_pwd):
     conn.close()
 
 def add_new_user(uname,pwd,role):
-    now=get_bj_now()
+    now=datetime.now().strftime("%Y-%m-%d %H:%M")
     conn=sqlite3.connect("user_data.db", check_same_thread=False)
     cur=conn.cursor()
     try:
@@ -110,6 +106,7 @@ def add_new_user(uname,pwd,role):
         return False
     conn.close()
 
+# 获取全部用户
 def get_all_user():
     conn=sqlite3.connect("user_data.db", check_same_thread=False)
     cur=conn.cursor()
@@ -118,23 +115,23 @@ def get_all_user():
     conn.close()
     return data
 
-# 删除用户：禁止删除admin
-def delete_user(uid,username):
-    if username=="admin":
-        return False
+# 【新增：管理员删除用户，禁止删除admin】
+def delete_user_by_id(uid,uname):
+    if uname == "admin":
+        return False,"超级管理员admin禁止删除"
     conn=sqlite3.connect("user_data.db", check_same_thread=False)
     cur=conn.cursor()
     cur.execute("DELETE FROM user_info WHERE id=?",(uid,))
     conn.commit()
     conn.close()
-    return True
+    return True,"删除成功"
 
-# 仅首次初始化数据库
+# 仅首次启动初始化数据库
 if not st.session_state.db_inited:
     init_db()
     st.session_state.db_inited = True
 
-# AI客户端只实例一次
+# AI客户端只实例化一次
 if "ai_client" not in st.session_state:
     try:
         API_KEY = st.secrets["API_KEY"]
@@ -152,14 +149,16 @@ if "css_done" not in st.session_state:
     <style>
     *{font-family:"Microsoft Yahei","SimSun";}
     #MainMenu,footer,header,[data-testid="stToolbar"]{display:none !important;height:0;visibility:hidden;}
+    /*浅色清新绿色 */
     @media (prefers-color-scheme: light){
-    .stApp{background:linear-gradient(135deg,#f1f8e9 0%,#e8f5e9 50%,#dcedc8 100%) !important;background-attachment:fixed;color:#263238;}
-    .func-card{background:rgba(232,245,233,0.92);border:1px solid #a5d6a7;border-radius:12px;padding:12px;box-shadow:0 3px 12px rgba(80,150,80,0.15);margin:5px 0;}
-    div[data-testid="stChatMessage"]{background:rgba(232,245,233,0.9);border:1px solid #a5d6a7;border-radius:10px;}
-    .stChatInput{background:rgba(232,245,233,0.95) !important;border-top:1px solid #a5d6a7;}
-    .stChatInput>div>div>div{background:#f1f8e9 !important;border:1px solid #a5d6a7;border-radius:20px;color:#263238;}
-    .stTextInput input,.stTextArea textarea,.stSelectbox>div>div{background:rgba(232,245,233,0.9);border:1px solid #a5d6a7;border-radius:8px;color:#263238;}
+    .stApp{background:linear-gradient(135deg,#F1F8E9 0%,#E8F5E9 50%,#DCEDC8 100%) !important;background-attachment:fixed;color:#263238;}
+    .func-card{background:rgba(255,255,255,0.92);border:1px solid #C8E6C9;border-radius:12px;padding:12px;box-shadow:0 3px 12px rgba(80,160,80,0.15);margin:5px 0;}
+    div[data-testid="stChatMessage"]{background:rgba(255,255,255,0.9);border:1px solid #C8E6C9;border-radius:10px;}
+    .stChatInput{background:rgba(255,255,255,0.95) !important;border-top:1px solid #C8E6C9;}
+    .stChatInput>div>div>div{background:#F1F8E9 !important;border:1px solid #C8E6C9;border-radius:20px;color:#263238;}
+    .stTextInput input,.stTextArea textarea,.stSelectbox>div>div{background:rgba(255,255,255,0.9);border:1px solid #C8E6C9;border-radius:8px;color:#263238;}
     }
+    /*深色书香棕 */
     @media (prefers-color-scheme: dark){
     .stApp{background:linear-gradient(135deg,#2c261e 0%,#252018 50%,#1e1a14 100%) !important;background-attachment:fixed;color:#e8dfcc;}
     .func-card{background:rgba(45,39,30,0.92);border:1px solid #6b5c4b;border-radius:12px;padding:12px;box-shadow:0 3px 12px rgba(0,0,0,0.35);margin:5px 0;}
@@ -170,9 +169,9 @@ if "css_done" not in st.session_state:
     }
     .stButton>button{height:44px;border-radius:10px;font-size:15px;}
     .stButton>button[kind="primary"]{background:#2E7D32;color:#fff;border:none;}
-    .stButton>button[kind="primary"]:hover{background:#1b5e20;transform:translateY(-2px);}
-    .stButton>button[kind="secondary"]{border:1px solid #81c784;background:transparent;}
-    .stButton>button[kind="secondary"]:hover{border-color:#2E7D32;color:#2E7D32;}
+    .stButton>button[kind="primary"]:hover{background:#27672b;transform:translateY(-2px);}
+    .stButton>button[kind="secondary"]{border:1px solid #b8a48c;background:transparent;}
+    .stButton>button[kind="secondary"]:hover{border-color:#82674b;color:#82674b;}
     </style>
     """,unsafe_allow_html=True)
     st.session_state.css_done = True
@@ -186,7 +185,7 @@ for k in init_keys:
         elif k=="chat_history": st.session_state[k]=[]
         else: st.session_state[k]=False
 
-#====================未登录拦截====================
+#====================未登录拦截：启动必须先登录====================
 if not st.session_state.login:
     st.markdown("# 📜 小政AI助手")
     st.warning("⚠️ 请先登录账号后使用全部功能，暂无账号可点击注册！")
@@ -237,7 +236,7 @@ if not st.session_state.login:
                     st.rerun()
     st.stop()
 
-#====================已登录====================
+#====================已登录进入系统====================
 user_bar=st.columns([3,1,1,1,1,1,1])
 user_bar[0].write(f"👤{st.session_state.user_name}【{st.session_state.user_role}】")
 with user_bar[1]:
@@ -256,28 +255,33 @@ with user_bar[4]:
         st.session_state.show_userlist=False
         st.rerun()
 
-# 用户列表+删除用户
+# ==========管理员用户列表（新增删除按钮）==========
 if st.session_state.show_userlist and st.session_state.user_role=="manager":
-    with st.expander("👥全部用户管理列表（admin禁止删除）",expanded=True):
+    with st.expander("👥全部用户管理列表 | 可删除非admin账号",expanded=True):
         alluser=get_all_user()
-        for uid,uname,urole,utime in alluser:
-            col1,col2,col3,col4,col5=st.columns([1.2,2,1.2,2.5,1])
-            col1.write(uid)
-            col2.write(uname)
-            col3.write(urole)
-            col4.write(utime)
-            with col5:
-                if uname!="admin":
-                    if st.button("删除",key=f"del_{uid}"):
-                        if delete_user(uid,uname):
-                            st.success(f"{uname}已删除")
+        st.markdown("|ID|用户名|权限|注册时间|操作|")
+        st.markdown("|----|----|----|----|----|")
+        for item in alluser:
+            uid,uname,urole,utime=item
+            col1,col2=st.columns([4,1])
+            with col1:
+                st.markdown(f"{uid}｜{uname}｜{urole}｜{utime}")
+            with col2:
+                if uname != "admin":
+                    if st.button(f"删除{uname}",key=f"del_{uid}"):
+                        flag,msg=delete_user_by_id(uid,uname)
+                        if flag:
+                            st.success(msg)
                             st.rerun()
+                        else:
+                            st.warning(msg)
                 else:
-                    st.write("🔒管理员")
+                    st.text("不可删")
         if st.button("关闭列表"):
             st.session_state.show_userlist=False
             st.rerun()
 
+#导航菜单
 st.markdown("### 📜 小政 AI 助手")
 base_menu=["💬 对话","📖 书摘","🏷️ 起名","📸 朋友圈文案"]
 if st.session_state.user_role=="manager":
@@ -309,7 +313,7 @@ if func=="💬 对话":
         with st.chat_message("assistant"):st.markdown(ans)
         add_sql("chat",[msg,ans])
 
-#书摘（带同类推荐）
+#书摘（保留原版同类推荐）
 elif func=="📖 书摘":
     st.markdown('<div class="func-card"><h3>📖 书籍介绍 & 同类推荐</h3></div>',unsafe_allow_html=True)
     book_name = st.text_input("书名")
@@ -346,7 +350,7 @@ elif func=="📸 朋友圈文案":
             st.markdown(txt)
             add_sql("art",[sty,scene,txt])
 
-#存档
+#存档仅管理员
 elif func=="📂 我的存档":
     if st.session_state.user_role=="manager":
         st.markdown('<div class="func-card"><h3>📂 全量内容存档</h3></div>',unsafe_allow_html=True)
@@ -378,7 +382,7 @@ elif func=="📂 我的存档":
     else:
         st.warning("仅管理员可查看存档")
 
-#弹窗：修改密码
+# 修改密码弹窗
 if st.session_state.pop_reset:
     with st.expander("🔑 修改密码",expanded=True):
         np=st.text_input("新密码",type="password",key="newp")
@@ -390,7 +394,7 @@ if st.session_state.pop_reset:
         with cc2:
             if st.button("取消",key="resetclose"):st.session_state.pop_reset=False;st.rerun()
 
-#弹窗：新建账号
+#管理员新建账号弹窗
 if st.session_state.pop_adduser and st.session_state.user_role=="manager":
     with st.expander("➕管理员创建账号",expanded=True):
         au=st.text_input("新建用户名",key="adduser")
