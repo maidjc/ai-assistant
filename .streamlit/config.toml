@@ -1,6 +1,8 @@
 [server]
 enableCORS = false
 enableXsrfProtection = false
+# 新增关键提速：关闭文件监听，大幅缩短启动耗时
+fileWatcherType = "none"
 
 [browser]
 gatherUsageStats = false
