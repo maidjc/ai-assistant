@@ -1,5 +1,5 @@
 """
-小政AI｜1.启动先登录 2.管理员用户列表 3.恢复原版书摘（自带同类推荐）
+小政AI｜跟随系统深色/浅色自动切换页面背景 + 强制登录+管理员用户列表+原版书摘带推荐
 默认管理员：admin / 123456
 """
 import streamlit as st
@@ -127,15 +127,35 @@ SYSTEM_PROMPT = """你是「小政」，风趣随和、接地气，日常聊天�
 
 #页面配置
 st.set_page_config(page_title="小政",page_icon="📜",layout="centered",initial_sidebar_state="collapsed")
+
+#【深浅色自动适配CSS】跟随系统/页面深浅切换渐变背景
 st.markdown("""
 <style>
 *{font-family:"Microsoft Yahei","SimSun";}
 #MainMenu,footer,header,[data-testid="stToolbar"]{display:none !important;height:0;visibility:hidden;}
-.stApp{background:linear-gradient(135deg,#f8f2e4 0%,#f0e6d2 50%,#e9dcc3 100%) !important;background-attachment:fixed;}
+/*浅色模式 */
+@media (prefers-color-scheme: light){
+.stApp{background:linear-gradient(135deg,#f8f2e4 0%,#f0e6d2 50%,#e9dcc3 100%) !important;background-attachment:fixed;color:#4a3f30;}
 .func-card{background:rgba(255,253,246,0.92);border:1px solid #d4c2a8;border-radius:12px;padding:12px;box-shadow:0 3px 12px rgba(120,95,65,0.18);margin:5px 0;}
+div[data-testid="stChatMessage"]{background:rgba(255,253,246,0.9);border:1px solid #d4c2a8;border-radius:10px;}
+.stChatInput{background:rgba(255,253,246,0.95) !important;border-top:1px solid #d4c2a8;}
+.stChatInput>div>div>div{background:#faf4e6 !important;border:1px solid #d4c2a8;border-radius:20px;color:#4a3f30;}
+.stTextInput input,.stTextArea textarea,.stSelectbox>div>div{background:rgba(255,253,246,0.9);border:1px solid #d4c2a8;border-radius:8px;color:#4a3f30;}
+}
+/*深色模式 */
+@media (prefers-color-scheme: dark){
+.stApp{background:linear-gradient(135deg,#2c261e 0%,#252018 50%,#1e1a14 100%) !important;background-attachment:fixed;color:#e8dfcc;}
+.func-card{background:rgba(45,39,30,0.92);border:1px solid #6b5c4b;border-radius:12px;padding:12px;box-shadow:0 3px 12px rgba(0,0,0,0.35);margin:5px 0;}
+div[data-testid="stChatMessage"]{background:rgba(45,39,30,0.9);border:1px solid #6b5c4b;border-radius:10px;}
+.stChatInput{background:rgba(45,39,30,0.95) !important;border-top:1px solid #6b5c4b;}
+.stChatInput>div>div>div{background:#332c22 !important;border:1px solid #6b5c4b;border-radius:20px;color:#e8dfcc;}
+.stTextInput input,.stTextArea textarea,.stSelectbox>div>div{background:rgba(45,39,30,0.9);border:1px solid #6b5c4b;border-radius:8px;color:#e8dfcc;}
+}
 .stButton>button{height:44px;border-radius:10px;font-size:15px;}
 .stButton>button[kind="primary"]{background:#82674b;color:#fff8e8;border:none;}
+.stButton>button[kind="primary"]:hover{background:#6d543c;transform:translateY(-2px);}
 .stButton>button[kind="secondary"]{border:1px solid #b8a48c;background:transparent;}
+.stButton>button[kind="secondary"]:hover{border-color:#82674b;color:#82674b;}
 </style>
 """,unsafe_allow_html=True)
 
@@ -272,7 +292,7 @@ if func=="💬 对话":
         with st.chat_message("assistant"):st.markdown(ans)
         add_sql("chat",[msg,ans])
 
-# 2.书摘【恢复原版：介绍+同类书籍推荐】
+# 2.书摘【原版带同类推荐】
 elif func=="📖 书摘":
     st.markdown('<div class="func-card"><h3>📖 书籍介绍 & 同类推荐</h3></div>',unsafe_allow_html=True)
     book_name = st.text_input("书名")
