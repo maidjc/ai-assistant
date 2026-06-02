@@ -2,7 +2,7 @@
 enableCORS = false
 enableXsrfProtection = false
 fileWatcherType = "none"
-
+runOnSave = false
 [browser]
 gatherUsageStats = false
 
