@@ -1,6 +1,5 @@
 """
-小政AI助手 书香完整版｜兼容低版本Streamlit，取消st.modal改用expander弹窗登录改密
-原有界面、CSS、业务逻辑完全不变，默认管理员：admin / 123456
+小政AI助手｜新增用户自助注册，登录+注册+改密+管理员开号，expander弹窗
 """
 import streamlit as st
 from openai import OpenAI
@@ -42,7 +41,7 @@ def init_db():
         reply TEXT,
         create_time TEXT
     )''')
-    # 【新增用户账号表】
+    # 用户账号表
     cur.execute('''CREATE TABLE IF NOT EXISTS user_info(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE,
@@ -103,7 +102,7 @@ def del_sql(table, rid):
     conn.commit()
     conn.close()
 
-# ======账号管理新增函数======
+# ======账号管理函数======
 def check_user(uname,pwd):
     conn=sqlite3.connect("user_data.db")
     cur=conn.cursor()
@@ -214,7 +213,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ==========登录会话初始化==========
+# ==========会话初始化（新增注册弹窗标记）==========
 if "login" not in st.session_state:
     st.session_state.login=False
     st.session_state.user_name=""
@@ -225,25 +224,32 @@ if "pop_reset" not in st.session_state:
     st.session_state.pop_reset=False
 if "pop_adduser" not in st.session_state:
     st.session_state.pop_adduser=False
+if "pop_reg" not in st.session_state:
+    st.session_state.pop_reg=False
 
-# 登录按钮行（不改动原有导航排版）
-user_bar=st.columns([4,1,1,1])
+# 顶部按钮：登录｜注册｜改密｜新建账号
+user_bar=st.columns([3,1,1,1,1])
 with user_bar[1]:
     if not st.session_state.login:
         if st.button("🔐登录",type="secondary"):
             st.session_state.pop_login=True
-    else:
-        st.write(f"👤{st.session_state.user_name}【{st.session_state.user_role}】")
 with user_bar[2]:
+    if not st.session_state.login:
+        if st.button("📝注册",type="secondary"):
+            st.session_state.pop_reg=True
+with user_bar[3]:
     if st.session_state.login:
         if st.button("🔑改密",type="secondary"):
             st.session_state.pop_reset=True
-with user_bar[3]:
+with user_bar[4]:
     if st.session_state.login and st.session_state.user_role=="manager":
-        if st.button("➕新建账号",type="secondary"):
+        if st.button("➕开账号",type="secondary"):
             st.session_state.pop_adduser=True
+# 已登录显示用户名
+if st.session_state.login:
+    user_bar[0].write(f"👤{st.session_state.user_name}【{st.session_state.user_role}】")
 
-# ========== 导航栏（原代码完全保留无修改） ==========
+# ========== 导航栏不变 ==========
 st.markdown("### 📜 小政 AI 助手")
 nav_items = ["💬 对话", "📖 书摘", "🏷️ 起名", "📸 朋友圈文案", "📂 我的存档"]
 cols = st.columns(len(nav_items))
@@ -276,7 +282,6 @@ if func == "💬 对话":
         st.session_state.chat_history.append({"role":"assistant","content":ans})
         with st.chat_message("assistant"):
             st.markdown(ans)
-        # 保存对话入库
         add_sql("chat", [prompt, ans])
 
 # ========== 2.书摘模块 ==========
@@ -289,7 +294,6 @@ elif func == "📖 书摘":
             ask = f"详细介绍《{book_name}》作者{author}，包含基础信息、梗概、亮点、适合人群，顺带推荐同类好书，语言生活化。"
             ans = client.chat.completions.create(model=MODEL_NAME,messages=[{"role":"system","content":SYSTEM_PROMPT},{"role":"user","content":ask}]).choices[0].message.content
             st.markdown(ans)
-            # 存入数据库
             add_sql("book", [book_name, author, ans])
 
 # ==========3.起名模块 ==========
@@ -317,11 +321,10 @@ elif func == "📸 朋友圈文案":
             st.markdown(ans)
             add_sql("art",[style,scene,ans])
 
-# ==========5.我的存档｜历史记录查询+删除 ==========
+# ==========5.我的存档 ==========
 elif func == "📂 我的存档":
     st.markdown('<div class="func-card"><h3>📂 个人内容存档</h3></div>', unsafe_allow_html=True)
     tab1,tab2,tab3,tab4 = st.tabs(["书籍存档","起名存档","文案存档","对话存档"])
-    # 书籍
     with tab1:
         kw = st.text_input("书名搜索")
         data = search_sql("book",kw)
@@ -331,7 +334,6 @@ elif func == "📂 我的存档":
             if st.button("删除",key=f'b{row[0]}'):
                 del_sql("book",row[0])
                 st.rerun()
-    #起名
     with tab2:
         kw = st.text_input("需求关键词")
         data = search_sql("name",kw)
@@ -341,7 +343,6 @@ elif func == "📂 我的存档":
             if st.button("删除",key=f'n{row[0]}'):
                 del_sql("name",row[0])
                 st.rerun()
-    #文案
     with tab3:
         kw = st.text_input("场景搜索")
         data = search_sql("art",kw)
@@ -351,7 +352,6 @@ elif func == "📂 我的存档":
             if st.button("删除",key=f'a{row[0]}'):
                 del_sql("art",row[0])
                 st.rerun()
-    #聊天
     with tab4:
         kw = st.text_input("提问检索")
         data = search_sql("chat",kw)
@@ -362,61 +362,81 @@ elif func == "📂 我的存档":
                 del_sql("chat",row[0])
                 st.rerun()
 
-# ==========【替换expander弹窗，去除st.modal，兼容低版本】=========
-# 登录面板
+# ==========弹窗区：登录+注册+改密+管理员开号=========
+#1登录
 if st.session_state.pop_login:
     with st.expander("🔐 用户登录", expanded=True):
         usr = st.text_input("账号", key="login_user")
         pwd = st.text_input("密码", type="password", key="login_pwd")
-        c1, c2 = st.columns(2)
+        c1,c2=st.columns(2)
         with c1:
-            if st.button("登录", type="primary", key="btn_login_ok"):
-                ret = check_user(usr, pwd)
+            if st.button("登录",type="primary",key="btn_login_ok"):
+                ret=check_user(usr,pwd)
                 if ret:
-                    st.session_state.login = True
-                    st.session_state.user_name = usr
-                    st.session_state.user_role = ret[0]
-                    st.session_state.pop_login = False
+                    st.session_state.login=True
+                    st.session_state.user_name=usr
+                    st.session_state.user_role=ret[0]
+                    st.session_state.pop_login=False
                     st.rerun()
                 else:
                     st.error("账号或密码错误")
         with c2:
-            if st.button("关闭", key="btn_login_close"):
-                st.session_state.pop_login = False
+            if st.button("关闭",key="btn_login_close"):
+                st.session_state.pop_login=False
                 st.rerun()
 
-# 修改密码面板
+#2【新增：自助注册普通用户】
+if st.session_state.pop_reg:
+    with st.expander("📝 新用户注册(默认普通user)", expanded=True):
+        reg_name=st.text_input("设置用户名",key="reg_u")
+        reg_pwd=st.text_input("设置密码",type="password",key="reg_p")
+        c1,c2=st.columns(2)
+        with c1:
+            if st.button("完成注册",type="primary",key="reg_ok") and reg_name and reg_pwd:
+                res=add_new_user(reg_name,reg_pwd,"user")
+                if res:
+                    st.success("注册成功！返回登录")
+                    st.session_state.pop_reg=False
+                    st.rerun()
+                else:
+                    st.error("用户名已被占用")
+        with c2:
+            if st.button("关闭",key="reg_close"):
+                st.session_state.pop_reg=False
+                st.rerun()
+
+#3改密
 if st.session_state.pop_reset:
     with st.expander("🔑 修改登录密码", expanded=True):
-        new_pwd = st.text_input("输入新密码", type="password", key="reset_pwd_input")
-        c1, c2 = st.columns(2)
+        new_pwd=st.text_input("输入新密码",type="password",key="reset_pwd_input")
+        c1,c2=st.columns(2)
         with c1:
-            if st.button("确认修改", type="primary", key="reset_ok") and new_pwd:
-                reset_pwd(st.session_state.user_name, new_pwd)
+            if st.button("确认修改",type="primary",key="reset_ok") and new_pwd:
+                reset_pwd(st.session_state.user_name,new_pwd)
                 st.success("密码修改成功！")
-                st.session_state.pop_reset = False
+                st.session_state.pop_reset=False
                 st.rerun()
         with c2:
-            if st.button("取消", key="reset_cancel"):
-                st.session_state.pop_reset = False
+            if st.button("取消",key="reset_cancel"):
+                st.session_state.pop_reset=False
                 st.rerun()
 
-# 管理员新建账号面板
-if st.session_state.pop_adduser and st.session_state.user_role == "manager":
+#4管理员新建账号
+if st.session_state.pop_adduser and st.session_state.user_role=="manager":
     with st.expander("➕ 管理员·新建账户", expanded=True):
-        new_u = st.text_input("新建用户名", key="adduser_name")
-        new_p = st.text_input("新建密码", type="password", key="adduser_pwd")
-        sel_role = st.selectbox("账号权限", ["user普通用户", "manager管理员"], key="adduser_role")
-        real_role = sel_role.replace("普通用户", "").replace("管理员", "")
-        c1, c2 = st.columns(2)
+        new_u=st.text_input("新建用户名",key="adduser_name")
+        new_p=st.text_input("新建密码",type="password",key="adduser_pwd")
+        sel_role=st.selectbox("账号权限",["user普通用户","manager管理员"],key="adduser_role")
+        real_role=sel_role.replace("普通用户","").replace("管理员","")
+        c1,c2=st.columns(2)
         with c1:
-            if st.button("创建账号", type="primary", key="add_ok") and new_u and new_p:
-                res = add_new_user(new_u, new_p, real_role)
+            if st.button("创建账号",type="primary",key="add_ok") and new_u and new_p:
+                res=add_new_user(new_u,new_p,real_role)
                 if res:
                     st.success("创建成功")
                 else:
                     st.error("用户名已存在")
         with c2:
-            if st.button("关闭", key="add_close"):
-                st.session_state.pop_adduser = False
+            if st.button("关闭",key="add_close"):
+                st.session_state.pop_adduser=False
                 st.rerun()
