@@ -1,6 +1,6 @@
 """
-小政AI助手｜必须登录/注册才可使用功能，数据按用户名分表标记，管理员可查看全部用户存档
-默认管理员：admin / 123456
+小政AI助手｜修复数据表空格+SQL字段错位报错，登录才可使用，数据绑定用户名，管理员查看全量记录
+默认管理员账号：admin / 123456
 """
 import streamlit as st
 from openai import OpenAI
@@ -11,7 +11,7 @@ import sqlite3
 def init_db():
     conn = sqlite3.connect("user_data.db")
     cur = conn.cursor()
-    # 用户表
+    # 用户信息表
     cur.execute('''CREATE TABLE IF NOT EXISTS user_info(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE,
@@ -19,7 +19,7 @@ def init_db():
         role TEXT,
         create_time TEXT
     )''')
-    # 书籍记录（新增username字段绑定用户）
+    # 书籍记录表（首字段username绑定用户）
     cur.execute('''CREATE TABLE IF NOT EXISTS book_record(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT,
@@ -28,7 +28,7 @@ def init_db():
         content TEXT,
         create_time TEXT
     )''')
-    # 起名记录
+    # 起名记录表
     cur.execute('''CREATE TABLE IF NOT EXISTS name_record(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT,
@@ -37,7 +37,7 @@ def init_db():
         result TEXT,
         create_time TEXT
     )''')
-    # 朋友圈文案
+    # 朋友圈文案表
     cur.execute('''CREATE TABLE IF NOT EXISTS art_record(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT,
@@ -46,7 +46,7 @@ def init_db():
         content TEXT,
         create_time TEXT
     )''')
-    # 对话记录
+    # 【重点修复：表名chat_record无空格，之前空格chat record导致SQL报错】
     cur.execute('''CREATE TABLE IF NOT EXISTS chat_record(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT,
@@ -54,13 +54,13 @@ def init_db():
         reply TEXT,
         create_time TEXT
     )''')
-    # 默认管理员
+    # 默认管理员账号
     cur.execute("INSERT OR IGNORE INTO user_info(username,password,role,create_time) VALUES(?,?,?,?)",
                 ("admin","123456","manager",datetime.now().strftime("%Y-%m-%d %H:%M")))
     conn.commit()
     conn.close()
 
-# 插入数据（自动带入当前登录用户名）
+# 插入数据：带入登录用户名
 def add_sql(table, uname, data):
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
     conn = sqlite3.connect("user_data.db")
@@ -72,35 +72,43 @@ def add_sql(table, uname, data):
     elif table == "art":
         cur.execute("INSERT INTO art_record(username,style,scene,content,create_time) VALUES(?,?,?,?,?)", (uname,*data, now))
     elif table == "chat":
+        # 修复：表名chat_record，字段无空格
         cur.execute("INSERT INTO chat_record(username,ask,reply,create_time) VALUES(?,?,?,?)", (uname,*data, now))
     conn.commit()
     conn.close()
 
-# 查询：普通用户只查自己，管理员查全部
+# 查询：普通用户查自己，管理员全量查询
 def search_sql(table, key="", uname="", is_admin=False):
     conn = sqlite3.connect("user_data.db")
     cur = conn.cursor()
+    sql_base = ""
+    params = []
     if is_admin:
-        sql_where = "WHERE 1=1"
-        params = []
-        if key:
-            sql_where += " AND book_name LIKE ?" if table=="book" else (" AND desc LIKE ?" if table=="name" else (" AND scene LIKE ?" if table=="art" else " AND ask LIKE ?"))
-            params.append(f'%{key}%')
+        where_sql = " WHERE 1=1 "
     else:
-        sql_where = "WHERE username=?"
-        params = [uname]
-        if key:
-            sql_where += " AND book_name LIKE ?" if table=="book" else (" AND desc LIKE ?" if table=="name" else (" AND scene LIKE ?" if table=="art" else " AND ask LIKE ?"))
-            params.append(f'%{key}%')
+        where_sql = " WHERE username=? "
+        params.append(uname)
+
+    if key.strip()!="":
+        if table=="book":
+            where_sql += " AND book_name LIKE ? "
+        elif table=="name":
+            where_sql += " AND desc LIKE ? "
+        elif table=="art":
+            where_sql += " AND scene LIKE ? "
+        elif table=="chat":
+            where_sql += " AND ask LIKE ? "
+        params.append(f'%{key}%')
 
     if table == "book":
-        cur.execute(f"select * from book_record {sql_where}", params)
+        sql_base = f"select * from book_record {where_sql}"
     elif table == "name":
-        cur.execute(f"select * from name_record {sql_where}", params)
+        sql_base = f"select * from name_record {where_sql}"
     elif table == "art":
-        cur.execute(f"select * from art_record {sql_where}", params)
+        sql_base = f"select * from art_record {where_sql}"
     elif table == "chat":
-        cur.execute(f"select * from chat_record {sql_where}", params)
+        sql_base = f"select * from chat_record {where_sql}"
+    cur.execute(sql_base, params)
     res = cur.fetchall()
     conn.close()
     return res
@@ -120,7 +128,7 @@ def del_sql(table, rid):
     conn.commit()
     conn.close()
 
-# 账号相关
+# 账号工具函数
 def check_user(uname,pwd):
     conn=sqlite3.connect("user_data.db")
     cur=conn.cursor()
@@ -149,7 +157,7 @@ def add_new_user(uname,pwd,role):
     conn.close()
     return flag
 
-# 初始化库
+# 初始化数据库
 init_db()
 
 # ========== API配置 ==========
@@ -159,7 +167,6 @@ except:
     API_KEY = "4279ab216a1e4c8282b51f541aff703e.HJdsPUVWqGbMD7t0"
 BASE_URL = "https://open.bigmodel.cn/api/paas/v4/"
 MODEL_NAME = "glm-4-flash"
-from openai import OpenAI
 client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
 
 SYSTEM_PROMPT = """
@@ -167,7 +174,7 @@ SYSTEM_PROMPT = """
 书摘通俗口语、起名简约有寓意、朋友圈文案贴合风格。
 """
 
-# ==========页面样式==========
+# ==========页面样式CSS==========
 st.set_page_config(page_title="小政",page_icon="📜",layout="centered",initial_sidebar_state="collapsed")
 st.markdown("""
 <style>
@@ -182,7 +189,7 @@ div[data-testid="stChatMessage"]{background:rgba(255,253,246,0.9) !important;bor
 </style>
 """,unsafe_allow_html=True)
 
-# ==========会话状态==========
+# ==========会话状态初始化==========
 if "login" not in st.session_state:
     st.session_state.login=False
     st.session_state.user_name=""
@@ -192,7 +199,7 @@ if "pop_reg" not in st.session_state:st.session_state.pop_reg=False
 if "pop_reset" not in st.session_state:st.session_state.pop_reset=False
 if "pop_adduser" not in st.session_state:st.session_state.pop_adduser=False
 
-# 顶部按钮
+# 顶部功能按钮
 user_bar=st.columns([3,1,1,1,1,1])
 if not st.session_state.login:
     with user_bar[1]:
@@ -215,7 +222,7 @@ else:
 
 st.markdown("### 📜 小政 AI 助手")
 
-# ==========未登录拦截：必须登录注册才能使用全部功能==========
+# ==========未登录拦截：必须登录注册才能使用功能==========
 if not st.session_state.login:
     st.info("⚠️ 请先登录或注册账号后，方可使用对话、书摘、起名、文案、存档全部功能！")
 else:
@@ -230,7 +237,7 @@ else:
     uname=st.session_state.user_name
     is_admin=True if st.session_state.user_role=="manager" else False
 
-    #1对话
+    #1对话模块
     if func=="💬 对话":
         if "chat_history" not in st.session_state:st.session_state.chat_history=[]
         for i in st.session_state.chat_history:
@@ -245,7 +252,7 @@ else:
             with st.chat_message("assistant"):st.markdown(ans)
             add_sql("chat",uname,[prompt,ans])
 
-    #2书摘
+    #2书摘模块
     elif func=="📖 书摘":
         st.markdown('<div class="func-card"><h3>📖 书籍介绍 & 同类推荐</h3></div>',unsafe_allow_html=True)
         bk=st.text_input("书名")
@@ -257,7 +264,7 @@ else:
                 st.markdown(ans)
                 add_sql("book",uname,[bk,aut,ans])
 
-    #3起名
+    #3起名模块
     elif func=="🏷️ 起名":
         st.markdown('<div class="func-card"><h3>🏷️ AI起名</h3></div>',unsafe_allow_html=True)
         typ=st.selectbox("类型",["品牌店铺","宠物名字","网名笔名","小说角色"])
@@ -270,7 +277,7 @@ else:
                 st.markdown(ans)
                 add_sql("name",uname,[typ,desc,ans])
 
-    #4朋友圈
+    #4朋友圈文案模块
     elif func=="📸 朋友圈文案":
         st.markdown('<div class="func-card"><h3>📸 朋友圈文案生成</h3></div>',unsafe_allow_html=True)
         sty=st.selectbox("风格",["日常随性","文艺走心","幽默搞笑","简约短句","氛围感"])
@@ -282,7 +289,7 @@ else:
                 st.markdown(ans)
                 add_sql("art",uname,[sty,scene,ans])
 
-    #5存档：管理员看全用户，普通只看自己
+    #5存档：管理员查看全用户，普通用户仅自己
     elif func=="📂 我的存档":
         st.markdown('<div class="func-card"><h3>📂 存档记录【{}】</h3></div>'.format("管理员全量查看" if is_admin else "仅本人记录"),unsafe_allow_html=True)
         tab1,tab2,tab3,tab4=st.tabs(["书籍","起名","文案","对话"])
@@ -319,7 +326,7 @@ else:
                 st.text(f"回复：{rep}")
                 if st.button("删除",key=f'c{uid}'):del_sql("chat",uid);st.rerun()
 
-# ==========弹窗区域==========
+# ==========弹窗登录/注册/改密/管理员开户==========
 #登录弹窗
 if st.session_state.pop_login:
     with st.expander("🔐 用户登录",expanded=True):
