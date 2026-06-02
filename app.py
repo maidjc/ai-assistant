@@ -1,7 +1,7 @@
 """
-小政AI助手 书香完整版｜附带本地数据存储
-功能：对话、书摘、起名、朋友圈文案、我的存档(历史数据保存)
-存储：SQLite本地文件数据库 user_data.db
+小政AI助手 书香完整版｜附带本地数据存储 + 账户管理员弹窗登录改密
+原有所有界面、CSS、业务逻辑完全不变，新增：用户表、登录弹窗、改密弹窗、管理员新建账号弹窗
+默认管理员账号：admin 密码：123456
 """
 import streamlit as st
 from openai import OpenAI
@@ -43,6 +43,17 @@ def init_db():
         reply TEXT,
         create_time TEXT
     )''')
+    # 【新增用户账号表】
+    cur.execute('''CREATE TABLE IF NOT EXISTS user_info(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE,
+        password TEXT,
+        role TEXT,
+        create_time TEXT
+    )''')
+    # 默认管理员账号 admin/123456
+    cur.execute("INSERT OR IGNORE INTO user_info(username,password,role,create_time) VALUES(?,?,?,?)",
+                ("admin","123456","manager",datetime.now().strftime("%Y-%m-%d %H:%M")))
     conn.commit()
     conn.close()
 
@@ -92,6 +103,35 @@ def del_sql(table, rid):
         cur.execute("delete from chat_record where id=?", (rid,))
     conn.commit()
     conn.close()
+
+# ======账号管理新增函数======
+def check_user(uname,pwd):
+    conn=sqlite3.connect("user_data.db")
+    cur=conn.cursor()
+    cur.execute("select role from user_info where username=? and password=?",(uname,pwd))
+    res=cur.fetchone()
+    conn.close()
+    return res
+
+def reset_pwd(uname,new_pwd):
+    conn=sqlite3.connect("user_data.db")
+    cur=conn.cursor()
+    cur.execute("update user_info set password=? where username=?",(new_pwd,uname))
+    conn.commit()
+    conn.close()
+
+def add_new_user(uname,pwd,role):
+    now=datetime.now().strftime("%Y-%m-%d %H:%M")
+    conn=sqlite3.connect("user_data.db")
+    cur=conn.cursor()
+    try:
+        cur.execute("INSERT INTO user_info(username,password,role,create_time) VALUES(?,?,?,?)",(uname,pwd,role,now))
+        conn.commit()
+        flag=True
+    except:
+        flag=False
+    conn.close()
+    return flag
 
 # 初始化数据库
 init_db()
@@ -175,7 +215,36 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ========== 导航栏 ==========
+# ==========登录会话初始化==========
+if "login" not in st.session_state:
+    st.session_state.login=False
+    st.session_state.user_name=""
+    st.session_state.user_role=""
+if "pop_login" not in st.session_state:
+    st.session_state.pop_login=False
+if "pop_reset" not in st.session_state:
+    st.session_state.pop_reset=False
+if "pop_adduser" not in st.session_state:
+    st.session_state.pop_adduser=False
+
+# 登录按钮行（不改动原有导航排版）
+user_bar=st.columns([4,1,1,1])
+with user_bar[1]:
+    if not st.session_state.login:
+        if st.button("🔐登录",type="secondary"):
+            st.session_state.pop_login=True
+    else:
+        st.write(f"👤{st.session_state.user_name}【{st.session_state.user_role}】")
+with user_bar[2]:
+    if st.session_state.login:
+        if st.button("🔑改密",type="secondary"):
+            st.session_state.pop_reset=True
+with user_bar[3]:
+    if st.session_state.login and st.session_state.user_role=="manager":
+        if st.button("➕新建账号",type="secondary"):
+            st.session_state.pop_adduser=True
+
+# ========== 导航栏（原代码完全保留无修改） ==========
 st.markdown("### 📜 小政 AI 助手")
 nav_items = ["💬 对话", "📖 书摘", "🏷️ 起名", "📸 朋友圈文案", "📂 我的存档"]
 cols = st.columns(len(nav_items))
@@ -292,4 +361,63 @@ elif func == "📂 我的存档":
             st.text(f"小政：{row[2]}")
             if st.button("删除",key=f'c{row[0]}'):
                 del_sql("chat",row[0])
+                st.rerun()
+
+# ==========底部弹窗代码（新增功能，不改动原有逻辑）=========
+#登录弹窗
+if st.session_state.pop_login:
+    with st.modal("用户登录",is_open=True):
+        usr=st.text_input("账号")
+        pwd=st.text_input("密码",type="password")
+        c1,c2=st.columns(2)
+        with c1:
+            if st.button("登录",type="primary"):
+                ret=check_user(usr,pwd)
+                if ret:
+                    st.session_state.login=True
+                    st.session_state.user_name=usr
+                    st.session_state.user_role=ret[0]
+                    st.session_state.pop_login=False
+                    st.rerun()
+                else:
+                    st.error("账号或密码错误")
+        with c2:
+            if st.button("关闭"):
+                st.session_state.pop_login=False
+                st.rerun()
+
+#改密弹窗
+if st.session_state.pop_reset:
+    with st.modal("修改登录密码",is_open=True):
+        new_pwd=st.text_input("输入新密码",type="password")
+        c1,c2=st.columns(2)
+        with c1:
+            if st.button("确认修改",type="primary") and new_pwd:
+                reset_pwd(st.session_state.user_name,new_pwd)
+                st.success("密码修改成功！")
+                st.session_state.pop_reset=False
+                st.rerun()
+        with c2:
+            if st.button("取消"):
+                st.session_state.pop_reset=False
+                st.rerun()
+
+#管理员新建账号弹窗
+if st.session_state.pop_adduser and st.session_state.user_role=="manager":
+    with st.modal("管理员·新建账户",is_open=True):
+        new_u=st.text_input("新建用户名")
+        new_p=st.text_input("新建密码",type="password")
+        sel_role=st.selectbox("账号权限",["user普通用户","manager管理员"])
+        real_role=sel_role.split("普通")[0].split("管理员")[0]
+        c1,c2=st.columns(2)
+        with c1:
+            if st.button("创建账号",type="primary") and new_u and new_p:
+                res=add_new_user(new_u,new_p,real_role)
+                if res:
+                    st.success("创建成功")
+                else:
+                    st.error("用户名已存在")
+        with c2:
+            if st.button("关闭"):
+                st.session_state.pop_adduser=False
                 st.rerun()
