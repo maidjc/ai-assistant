@@ -1,5 +1,5 @@
 """
-小政AI助手｜新增用户自助注册，登录+注册+改密+管理员开号，expander弹窗
+小政AI助手｜登录+注册+改密+管理员开号+退出登录
 """
 import streamlit as st
 from openai import OpenAI
@@ -213,7 +213,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ==========会话初始化（新增注册弹窗标记）==========
+# ==========会话初始化==========
 if "login" not in st.session_state:
     st.session_state.login=False
     st.session_state.user_name=""
@@ -227,27 +227,33 @@ if "pop_adduser" not in st.session_state:
 if "pop_reg" not in st.session_state:
     st.session_state.pop_reg=False
 
-# 顶部按钮：登录｜注册｜改密｜新建账号
-user_bar=st.columns([3,1,1,1,1])
-with user_bar[1]:
-    if not st.session_state.login:
+# 顶部功能按钮栏（新增退出按钮）
+user_bar=st.columns([3,1,1,1,1,1])
+# 未登录：登录+注册
+if not st.session_state.login:
+    with user_bar[1]:
         if st.button("🔐登录",type="secondary"):
             st.session_state.pop_login=True
-with user_bar[2]:
-    if not st.session_state.login:
+    with user_bar[2]:
         if st.button("📝注册",type="secondary"):
             st.session_state.pop_reg=True
-with user_bar[3]:
-    if st.session_state.login:
+# 已登录：改密、管理员开号、退出
+else:
+    user_bar[0].write(f"👤{st.session_state.user_name}【{st.session_state.user_role}】")
+    with user_bar[1]:
         if st.button("🔑改密",type="secondary"):
             st.session_state.pop_reset=True
-with user_bar[4]:
-    if st.session_state.login and st.session_state.user_role=="manager":
-        if st.button("➕开账号",type="secondary"):
-            st.session_state.pop_adduser=True
-# 已登录显示用户名
-if st.session_state.login:
-    user_bar[0].write(f"👤{st.session_state.user_name}【{st.session_state.user_role}】")
+    with user_bar[2]:
+        if st.session_state.login and st.session_state.user_role=="manager":
+            if st.button("➕开账号",type="secondary"):
+                st.session_state.pop_adduser=True
+    with user_bar[3]:
+        if st.button("🚪退出",type="secondary"):
+            # 清空登录状态实现退出
+            st.session_state.login=False
+            st.session_state.user_name=""
+            st.session_state.user_role=""
+            st.rerun()
 
 # ========== 导航栏不变 ==========
 st.markdown("### 📜 小政 AI 助手")
@@ -385,7 +391,7 @@ if st.session_state.pop_login:
                 st.session_state.pop_login=False
                 st.rerun()
 
-#2【新增：自助注册普通用户】
+#2自助注册普通用户
 if st.session_state.pop_reg:
     with st.expander("📝 新用户注册(默认普通user)", expanded=True):
         reg_name=st.text_input("设置用户名",key="reg_u")
