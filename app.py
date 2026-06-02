@@ -1,20 +1,13 @@
 """
-书香AI助手｜多用户账号版
-1. 内置默认管理员：账号admin，密码123456
-2. 密码简单加密存储，各用户数据隔离
-3. 未登录锁功能，登录后生成内容只存在自己账号下
+书香AI助手｜带用户名分用户存储版
+多用户隔离：每个账号独立存档，互不干扰
 """
 import streamlit as st
 from openai import OpenAI
 from datetime import datetime
 import sqlite3
-import hashlib
 
-# 密码MD5加密
-def get_pwd_md5(pwd):
-    return hashlib.md5(pwd.encode()).hexdigest()
-
-# 数据库初始化
+# ==================== 数据库升级：新增用户表、全部表加user_id ====================
 def init_db():
     conn = sqlite3.connect("user_data.db")
     cur = conn.cursor()
@@ -24,7 +17,7 @@ def init_db():
         username TEXT UNIQUE,
         password TEXT
     )''')
-    # 书籍
+    # 书籍表增加user_id
     cur.execute('''CREATE TABLE IF NOT EXISTS book_record(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER,
@@ -59,37 +52,32 @@ def init_db():
         reply TEXT,
         create_time TEXT
     )''')
-    # 预置管理员账号 admin 123456
-    try:
-        cur.execute("INSERT INTO user(username,password) VALUES(?,?)",("admin",get_pwd_md5("123456")))
-    except:
-        pass
     conn.commit()
     conn.close()
 
-# 用户注册
+# 新增用户
 def reg_user(uname,pwd):
     conn=sqlite3.connect("user_data.db")
     c=conn.cursor()
     try:
-        c.execute("INSERT INTO user(username,password) VALUES(?,?)",(uname,get_pwd_md5(pwd)))
+        c.execute("INSERT INTO user(username,password) VALUES(?,?)",(uname,pwd))
         conn.commit()
-        res=True
+        flag=True
     except:
-        res=False
+        flag=False
     conn.close()
-    return res
+    return flag
 
-# 登录校验
+# 登录校验，返回用户uid
 def login_user(uname,pwd):
     conn=sqlite3.connect("user_data.db")
     c=conn.cursor()
-    c.execute("SELECT uid FROM user WHERE username=? AND password=?",(uname,get_pwd_md5(pwd)))
-    ret=c.fetchone()
+    c.execute("SELECT uid FROM user WHERE username=? AND password=?",(uname,pwd))
+    res=c.fetchone()
     conn.close()
-    return ret[0] if ret else None
+    return res[0] if res else None
 
-# 插入数据（绑定用户ID）
+# 新增数据（携带当前登录user_id）
 def add_sql(table, data, user_id):
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
     conn = sqlite3.connect("user_data.db")
@@ -105,7 +93,7 @@ def add_sql(table, data, user_id):
     conn.commit()
     conn.close()
 
-# 只查询当前用户数据
+# 查询只查当前登录用户的数据
 def search_sql(table, key="", user_id=0):
     conn = sqlite3.connect("user_data.db")
     cur = conn.cursor()
@@ -121,7 +109,7 @@ def search_sql(table, key="", user_id=0):
     conn.close()
     return res
 
-# 删除记录
+# 删除
 def del_sql(table, rid):
     conn = sqlite3.connect("user_data.db")
     cur = conn.cursor()
@@ -138,7 +126,7 @@ def del_sql(table, rid):
 
 init_db()
 
-# API配置
+# ==================== API配置 ====================
 try:
     API_KEY = st.secrets["API_KEY"]
 except:
@@ -146,165 +134,146 @@ except:
 BASE_URL = "https://open.bigmodel.cn/api/paas/v4/"
 MODEL_NAME = "glm-4-flash"
 client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
-
 SYSTEM_PROMPT = """
 你是「小政」，风趣随和、接地气，日常聊天自然不生硬，无AI机械话术；
 书摘通俗口语、起名简约有寓意、朋友圈文案贴合风格。
 """
 
-# 页面样式
-st.set_page_config(page_title="书香AI助手",page_icon="📜",layout="centered")
+# ==================== 页面样式 ====================
+st.set_page_config(page_title="小政AI",page_icon="📜",layout="centered")
 st.markdown("""
 <style>
 .stApp {background: linear-gradient(135deg, #f8f2e4 0%, #f0e6d2 50%, #e9dcc3 100%) !important;}
-#MainMenu,footer,header {display:none !important;}
-.func-card{background:rgba(255,253,246,0.92);border:1px solid #d4c2a8;border-radius:12px;padding:12px;}
+#MainMenu,footer,header{display:none !important;}
+.func-card{background:rgba(255,253,246,0.92);border:1px solid #d4c2a8;border-radius:12px;padding:10px;}
 </style>
 """,unsafe_allow_html=True)
 
-# 登录逻辑
+# ==================== 登录注册模块 ====================
 if "uid" not in st.session_state:
     st.session_state.uid = None
-
 if st.session_state.uid is None:
-    st.markdown("## 📜书香AI｜用户登录")
-    login_tab, reg_tab = st.tabs(["登录","新用户注册"])
-    with login_tab:
+    st.markdown("## 📜书香AI助手 · 用户登录")
+    tab1,tab2 = st.tabs(["登录","注册"])
+    with tab1:
         un = st.text_input("用户名")
         pw = st.text_input("密码",type="password")
-        if st.button("登录",type="primary"):
+        if st.button("登录"):
             uid = login_user(un,pw)
             if uid:
-                st.session_state.uid = uid
+                st.session_state.uid=uid
                 st.success("登录成功！")
                 st.rerun()
             else:
                 st.error("账号或密码错误")
-    with reg_tab:
-        new_un = st.text_input("设置用户名")
-        new_pw = st.text_input("设置密码",type="password")
-        if st.button("注册账号"):
-            if reg_user(new_un,new_pw):
-                st.success("注册成功，返回登录页登录")
+    with tab2:
+        unr = st.text_input("新建用户名")
+        pwr = st.text_input("设置密码",type="password")
+        if st.button("注册"):
+            if reg_user(unr,pwr):
+                st.success("注册完成，请去登录")
             else:
-                st.error("用户名已存在")
-    st.info("默认管理员账号：admin｜密码：123456")
-    st.stop()
+                st.error("用户名已被占用")
+    st.stop() #未登录停止往下运行
 
-# 当前登录用户ID
+# 已登录获取当前用户ID
 curr_uid = st.session_state.uid
-st.markdown(f"### 📜小政AI｜已登录用户ID：{curr_uid}")
+st.markdown(f"### 📜 小政 AI 助手｜当前用户：{curr_uid}")
 if st.button("退出登录"):
     del st.session_state.uid
     st.rerun()
 
-# 导航栏
+# 导航
 nav_items = ["💬 对话", "📖 书摘", "🏷️ 起名", "📸 朋友圈文案", "📂 我的存档"]
 if "current_func" not in st.session_state:
-    st.session_state.current_func = nav_items[0]
-cols = st.columns(len(nav_items))
-for idx,name in enumerate(nav_items):
-    with cols[idx]:
+    st.session_state.current_func=nav_items[0]
+cols=st.columns(len(nav_items))
+for i,name in enumerate(nav_items):
+    with cols[i]:
         if st.button(name,use_container_width=True,type="primary" if st.session_state.current_func==name else "secondary"):
-            st.session_state.current_func = name
+            st.session_state.current_func=name
             st.rerun()
-func = st.session_state.current_func
+func=st.session_state.current_func
 
-# 1.对话
+# ==================== 1对话 ====================
 if func == "💬 对话":
     if "chat_history" not in st.session_state:
         st.session_state.chat_history = []
-    for msg in st.session_state.chat_history:
-        with st.chat_message(msg["role"]):
-            st.markdown(msg["content"])
-    prompt = st.chat_input("输入消息开始聊天")
-    if prompt:
-        st.session_state.chat_history.append({"role":"user","content":prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
-        messages = [{"role":"system","content":SYSTEM_PROMPT}] + st.session_state.chat_history
-        res = client.chat.completions.create(model=MODEL_NAME,messages=messages)
-        ans = res.choices[0].message.content
+    for i in st.session_state.chat_history:
+        with st.chat_message(i["role"]):st.markdown(i["content"])
+    p=st.chat_input("聊天")
+    if p:
+        st.session_state.chat_history.append({"role":"user","content":p})
+        with st.chat_message("user"):st.markdown(p)
+        msg=[{"role":"system","content":SYSTEM_PROMPT}]+st.session_state.chat_history
+        ans=client.chat.completions.create(model=MODEL_NAME,messages=msg).choices[0].message.content
         st.session_state.chat_history.append({"role":"assistant","content":ans})
-        with st.chat_message("assistant"):
-            st.markdown(ans)
-        add_sql("chat",[prompt,ans],curr_uid)
+        with st.chat_message("assistant"):st.markdown(ans)
+        add_sql("chat",[p,ans],curr_uid)
 
-# 2.书摘
+# ====================2书摘====================
 elif func == "📖 书摘":
-    st.markdown('<div class="func-card"><h3>📖书籍简介与推荐</h3></div>',unsafe_allow_html=True)
-    bk_name = st.text_input("书名")
-    author = st.text_input("作者（选填）")
-    if st.button("生成内容",type="primary") and bk_name:
-        ask = f"详细介绍《{bk_name}》作者{author}，内容梗概、亮点、适配人群+同类推荐"
-        ans = client.chat.completions.create(model=MODEL_NAME,messages=[{"role":"system","content":SYSTEM_PROMPT},{"role":"user","content":ask}]).choices[0].message.content
-        st.markdown(ans)
-        add_sql("book",[bk_name,author,ans],curr_uid)
+    st.markdown('<div class="func-card"><h3>📖书籍介绍</h3></div>',unsafe_allow_html=True)
+    bk=st.text_input("书名")
+    aut=st.text_input("作者")
+    if st.button("生成",type="primary") and bk:
+        ask=f"介绍《{bk}》{aut}，梗概亮点+同类推荐"
+        res=client.chat.completions.create(model=MODEL_NAME,messages=[{"role":"system","content":SYSTEM_PROMPT},{"role":"user","content":ask}]).choices[0].message.content
+        st.markdown(res)
+        add_sql("book",[bk,aut,res],curr_uid)
 
-#3.起名
+# ====================3起名====================
 elif func == "🏷️ 起名":
-    st.markdown('<div class="func-card"><h3>🏷️AI智能起名</h3></div>',unsafe_allow_html=True)
-    typ = st.selectbox("起名分类",["品牌店铺","宠物名字","网名笔名","小说角色"])
-    desc = st.text_input("起名要求、风格描述")
-    num = st.slider("生成数量",3,10,5)
-    if st.button("生成名字",type="primary") and desc:
-        ask = f"生成{num}个{typ}名称，要求：{desc}，每个附带简短释义"
-        ans = client.chat.completions.create(model=MODEL_NAME,messages=[{"role":"system","content":SYSTEM_PROMPT},{"role":"user","content":ask}]).choices[0].message.content
-        st.markdown(ans)
-        add_sql("name",[typ,desc,ans],curr_uid)
+    st.markdown('<div class="func-card"><h3>🏷️AI起名</h3></div>',unsafe_allow_html=True)
+    tp=st.selectbox("类型",["品牌","宠物","网名","角色"])
+    desc=st.text_input("要求描述")
+    num=st.slider("数量",3,10,5)
+    if st.button("生成",type="primary") and desc:
+        ask=f"{num}个{tp}名字，{desc}，附带释义"
+        res=client.chat.completions.create(model=MODEL_NAME,messages=[{"role":"system","content":SYSTEM_PROMPT},{"role":"user","content":ask}]).choices[0].message.content
+        st.markdown(res)
+        add_sql("name",[tp,desc,res],curr_uid)
 
-#4.朋友圈文案
+# ====================4文案====================
 elif func == "📸 朋友圈文案":
-    st.markdown('<div class="func-card"><h3>📸朋友圈文案生成</h3></div>',unsafe_allow_html=True)
-    style = st.selectbox("文案风格",["日常随性","文艺走心","幽默搞笑","简约短句","氛围感"])
-    scene = st.text_input("场景描述")
-    if st.button("生成文案",type="primary") and scene:
-        ask = f"场景：{scene}，风格：{style}，多条长短搭配朋友圈文案"
-        ans = client.chat.completions.create(model=MODEL_NAME,messages=[{"role":"system","content":SYSTEM_PROMPT},{"role":"user","content":ask}]).choices[0].message.content
-        st.markdown(ans)
-        add_sql("art",[style,scene,ans],curr_uid)
+    st.markdown('<div class="func-card"><h3>📸朋友圈文案</h3></div>',unsafe_allow_html=True)
+    sty=st.selectbox("风格",["随性","文艺","搞笑","短句","氛围感"])
+    sce=st.text_input("场景")
+    if st.button("生成",type="primary") and sce:
+        ask=f"场景{sce}，风格{sty}多条朋友圈文案"
+        res=client.chat.completions.create(model=MODEL_NAME,messages=[{"role":"system","content":SYSTEM_PROMPT},{"role":"user","content":ask}]).choices[0].message.content
+        st.markdown(res)
+        add_sql("art",[sty,sce,res],curr_uid)
 
-#5.我的存档（仅当前用户数据）
+# ====================5我的存档（只显示当前用户）====================
 elif func == "📂 我的存档":
-    st.markdown('<div class="func-card"><h3>📂个人历史存档（仅本人数据）</h3></div>',unsafe_allow_html=True)
-    tab1,tab2,tab3,tab4 = st.tabs(["书籍存档","起名存档","文案存档","对话存档"])
-    #书籍
-    with tab1:
-        kw = st.text_input("关键词搜索书名")
-        data = search_sql("book",kw,curr_uid)
-        for row in data:
-            st.write(f"📅{row[5]}｜{row[2]}【{row[3]}】")
-            st.text(row[4])
-            if st.button("删除",key=f'b{row[0]}'):
-                del_sql("book",row[0])
-                st.rerun()
-    #起名
-    with tab2:
-        kw = st.text_input("关键词搜索需求")
-        data = search_sql("name",kw,curr_uid)
-        for row in data:
-            st.write(f"📅{row[5]}｜{row[2]}｜需求：{row[3]}")
-            st.text(row[4])
-            if st.button("删除",key=f'n{row[0]}'):
-                del_sql("name",row[0])
-                st.rerun()
-    #文案
-    with tab3:
-        kw = st.text_input("关键词搜索场景")
-        data = search_sql("art",kw,curr_uid)
-        for row in data:
-            st.write(f"📅{row[5]}｜{row[2]}｜{row[3]}")
-            st.text(row[4])
-            if st.button("删除",key=f'a{row[0]}'):
-                del_sql("art",row[0])
-                st.rerun()
-    #聊天
-    with tab4:
-        kw = st.text_input("关键词搜索提问")
-        data = search_sql("chat",kw,curr_uid)
-        for row in data:
-            st.write(f"📅{row[4]} 用户：{row[2]}")
-            st.text(f"小政：{row[3]}")
-            if st.button("删除",key=f'c{row[0]}'):
-                del_sql("chat",row[0])
-                st.rerun()
+    st.markdown('<div class="func-card"><h3>📂个人存档（仅自己数据）</h3></div>',unsafe_allow_html=True)
+    t1,t2,t3,t4=st.tabs(["书籍","起名","文案","对话"])
+    with t1:
+        k=st.text_input("搜书名")
+        d=search_sql("book",k,curr_uid)
+        for r in d:
+            st.write(f"{r[5]}｜{r[2]} {r[3]}")
+            st.text(r[4])
+            if st.button("删",key=f'b{r[0]}'):del_sql("book",r[0]);st.rerun()
+    with t2:
+        k=st.text_input("搜需求")
+        d=search_sql("name",k,curr_uid)
+        for r in d:
+            st.write(f"{r[5]}｜{r[2]}：{r[3]}")
+            st.text(r[4])
+            if st.button("删",key=f'n{r[0]}'):del_sql("name",r[0]);st.rerun()
+    with t3:
+        k=st.text_input("搜场景")
+        d=search_sql("art",k,curr_uid)
+        for r in d:
+            st.write(f"{r[5]}｜{r[2]} {r[3]}")
+            st.text(r[4])
+            if st.button("删",key=f'a{r[0]}'):del_sql("art",r[0]);st.rerun()
+    with t4:
+        k=st.text_input("搜提问")
+        d=search_sql("chat",k,curr_uid)
+        for r in d:
+            st.write(f"{r[4]} 用户：{r[2]}")
+            st.text(f"回复：{r[3]}")
+            if st.button("删",key=f'c{r[0]}'):del_sql("chat",r[0]);st.rerun()
