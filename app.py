@@ -1,4 +1,4 @@
-"""小政AI｜新增管理员删除用户 + 浅绿/深色书香主题+提速优化+强制登录"""
+"""小政AI｜新增管理员删除用户 + 浅绿/深色书香主题+提速优化+强制登录+GLM-4.6V起名优化"""
 import streamlit as st
 from openai import OpenAI
 from datetime import datetime
@@ -7,7 +7,7 @@ import sqlite3
 # ==========全局常量只初始化一次==========
 SYSTEM_PROMPT = """你是「小政」，风趣随和、接地气，日常聊天自然不生硬，无AI机械话术；书摘通俗口语、起名简约有寓意、朋友圈文案贴合风格。"""
 BASE_URL = "https://open.bigmodel.cn/api/paas/v4/"
-MODEL_NAME = "glm-4-flash"
+MODEL_NAME = "glm-4.6v"
 
 # 单例标记：数据库只初始化1次
 if "db_inited" not in st.session_state:
@@ -325,15 +325,16 @@ elif func=="📖 书摘":
             st.markdown(ans)
             add_sql("book", [book_name, author, ans])
 
-#起名
+#起名【匹配原图界面格式，GLM-4.6V优化逻辑】
 elif func=="🏷️ 起名":
     st.markdown('<div class="func-card"><h3>🏷️ AI起名</h3></div>',unsafe_allow_html=True)
-    typ=st.selectbox("类型",["品牌店铺","宠物名字","网名笔名","小说角色"])
-    desc=st.text_input("风格描述")
+    typ=st.selectbox("类型",["品牌/店铺","宠物名字","网名笔名","小说角色"])
+    desc=st.text_input("描述(风格、人群、特点)")
     num=st.slider("数量",3,10,5)
-    if st.button("✨生成名字",type="primary") and desc:
+    if st.button("✨开始起名",type="primary") and desc:
         with st.spinner("生成中..."):
-            rep=client.chat.completions.create(model=MODEL_NAME,messages=[{"role":"system","content":SYSTEM_PROMPT},{"role":"user","content":f"{num}个{typ}名字，{desc}"}])
+            prompt=f"生成{num}个{typ}名称，要求：{desc}，名字雅致有寓意，每个附带简短释义，排版整洁自然，无多余话术"
+            rep=client.chat.completions.create(model=MODEL_NAME,messages=[{"role":"system","content":SYSTEM_PROMPT},{"role":"user","content":prompt}])
             txt=rep.choices[0].message.content
             st.markdown(txt)
             add_sql("name",[typ,desc,txt])
