@@ -1,5 +1,7 @@
 """
-小政AI助手｜登录+注册+改密+管理员开号+退出登录
+小政AI助手｜权限管控：存档模块仅管理员可见，普通用户隐藏存档入口
+功能：注册、登录、改密、管理员开号、退出登录
+默认管理员账号：admin / 123456
 """
 import streamlit as st
 from openai import OpenAI
@@ -138,7 +140,7 @@ init_db()
 try:
     API_KEY = st.secrets["API_KEY"]
 except:
-    API_KEY = ""
+    API_KEY = "4279ab216a1e4c8282b51f541aff703e.HJdsPUVWqGbMD7t0"
 BASE_URL = "https://open.bigmodel.cn/api/paas/v4/"
 MODEL_NAME = "glm-4-flash"
 
@@ -227,7 +229,7 @@ if "pop_adduser" not in st.session_state:
 if "pop_reg" not in st.session_state:
     st.session_state.pop_reg=False
 
-# 顶部功能按钮栏（新增退出按钮）
+# 顶部功能按钮栏
 user_bar=st.columns([3,1,1,1,1,1])
 # 未登录：登录+注册
 if not st.session_state.login:
@@ -244,20 +246,26 @@ else:
         if st.button("🔑改密",type="secondary"):
             st.session_state.pop_reset=True
     with user_bar[2]:
-        if st.session_state.login and st.session_state.user_role=="manager":
+        if st.session_state.user_role=="manager":
             if st.button("➕开账号",type="secondary"):
                 st.session_state.pop_adduser=True
     with user_bar[3]:
         if st.button("🚪退出",type="secondary"):
-            # 清空登录状态实现退出
             st.session_state.login=False
             st.session_state.user_name=""
             st.session_state.user_role=""
             st.rerun()
 
-# ========== 导航栏不变 ==========
+# ========== 导航栏：普通用户隐藏【我的存档】，仅管理员显示 ==========
 st.markdown("### 📜 小政 AI 助手")
-nav_items = ["💬 对话", "📖 书摘", "🏷️ 起名", "📸 朋友圈文案", "📂 我的存档"]
+# 基础固定菜单
+base_menu = ["💬 对话", "📖 书摘", "🏷️ 起名", "📸 朋友圈文案"]
+# 管理员额外增加存档菜单
+if st.session_state.login and st.session_state.user_role == "manager":
+    nav_items = base_menu + ["📂 我的存档"]
+else:
+    nav_items = base_menu
+
 cols = st.columns(len(nav_items))
 if "current_func" not in st.session_state:
     st.session_state.current_func = nav_items[0]
@@ -327,46 +335,50 @@ elif func == "📸 朋友圈文案":
             st.markdown(ans)
             add_sql("art",[style,scene,ans])
 
-# ==========5.我的存档 ==========
+# ==========5.我的存档【仅管理员进入】 ==========
 elif func == "📂 我的存档":
-    st.markdown('<div class="func-card"><h3>📂 个人内容存档</h3></div>', unsafe_allow_html=True)
-    tab1,tab2,tab3,tab4 = st.tabs(["书籍存档","起名存档","文案存档","对话存档"])
-    with tab1:
-        kw = st.text_input("书名搜索")
-        data = search_sql("book",kw)
-        for row in data:
-            st.write(f"📅{row[4]}｜{row[1]}【{row[2]}】")
-            st.text(row[3])
-            if st.button("删除",key=f'b{row[0]}'):
-                del_sql("book",row[0])
-                st.rerun()
-    with tab2:
-        kw = st.text_input("需求关键词")
-        data = search_sql("name",kw)
-        for row in data:
-            st.write(f"📅{row[4]}｜分类：{row[1]}｜需求：{row[2]}")
-            st.text(row[3])
-            if st.button("删除",key=f'n{row[0]}'):
-                del_sql("name",row[0])
-                st.rerun()
-    with tab3:
-        kw = st.text_input("场景搜索")
-        data = search_sql("art",kw)
-        for row in data:
-            st.write(f"📅{row[4]}｜风格：{row[1]}｜场景：{row[2]}")
-            st.text(row[3])
-            if st.button("删除",key=f'a{row[0]}'):
-                del_sql("art",row[0])
-                st.rerun()
-    with tab4:
-        kw = st.text_input("提问检索")
-        data = search_sql("chat",kw)
-        for row in data:
-            st.write(f"📅{row[3]} 用户：{row[1]}")
-            st.text(f"小政：{row[2]}")
-            if st.button("删除",key=f'c{row[0]}'):
-                del_sql("chat",row[0])
-                st.rerun()
+    # 二次权限校验，防止手动跳转
+    if st.session_state.login and st.session_state.user_role == "manager":
+        st.markdown('<div class="func-card"><h3>📂 个人内容存档</h3></div>', unsafe_allow_html=True)
+        tab1,tab2,tab3,tab4 = st.tabs(["书籍存档","起名存档","文案存档","对话存档"])
+        with tab1:
+            kw = st.text_input("书名搜索")
+            data = search_sql("book",kw)
+            for row in data:
+                st.write(f"📅{row[4]}｜{row[1]}【{row[2]}】")
+                st.text(row[3])
+                if st.button("删除",key=f'b{row[0]}'):
+                    del_sql("book",row[0])
+                    st.rerun()
+        with tab2:
+            kw = st.text_input("需求关键词")
+            data = search_sql("name",kw)
+            for row in data:
+                st.write(f"📅{row[4]}｜分类：{row[1]}｜需求：{row[2]}")
+                st.text(row[3])
+                if st.button("删除",key=f'n{row[0]}'):
+                    del_sql("name",row[0])
+                    st.rerun()
+        with tab3:
+            kw = st.text_input("场景搜索")
+            data = search_sql("art",kw)
+            for row in data:
+                st.write(f"📅{row[4]}｜风格：{row[1]}｜场景：{row[2]}")
+                st.text(row[3])
+                if st.button("删除",key=f'a{row[0]}'):
+                    del_sql("art",row[0])
+                    st.rerun()
+        with tab4:
+            kw = st.text_input("提问检索")
+            data = search_sql("chat",kw)
+            for row in data:
+                st.write(f"📅{row[3]} 用户：{row[1]}")
+                st.text(f"小政：{row[2]}")
+                if st.button("删除",key=f'c{row[0]}'):
+                    del_sql("chat",row[0])
+                    st.rerun()
+    else:
+        st.warning("无权访问！存档功能仅限管理员查看")
 
 # ==========弹窗区：登录+注册+改密+管理员开号=========
 #1登录
