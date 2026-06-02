@@ -1,13 +1,47 @@
-"""小政AI｜新增管理员删除用户 + 浅绿/深色书香主题+提速优化+强制登录"""
+"""小政AI｜GLM-4.6V｜深浅主题(浅绿/书香深色)｜管理员删用户｜起名智能｜文案违禁过滤｜普通用户隐藏GitHub相关、隐藏存档"""
 import streamlit as st
 from openai import OpenAI
 from datetime import datetime
 import sqlite3
 
 # ==========全局常量只初始化一次==========
-SYSTEM_PROMPT = """你是「小政」，风趣随和、接地气，日常聊天自然不生硬，无AI机械话术；书摘通俗口语、起名简约有寓意、朋友圈文案贴合风格。"""
+SYSTEM_PROMPT = """你是「小政」，风趣随和、接地气，日常聊天自然不生硬。
+⚠️【必须严格遵守】所有输出**严禁出现任何违法/违规/敏感词汇**：
+1. 绝对禁止：最、第一、唯一、顶级、国家级、世界级、极致、完美、100%、纯天然、永久、万能、特效、秒杀、万人疯抢、国家专供、免检、防癌、抗癌等广告法违禁词；
+2. 不得使用虚假夸大、诱导欺诈、权威背书、医疗保证、色情迷信暴力内容；
+3. 遇到极限词需求，自动替换为安全表达：如“最好”→“优选”、“第一”→“领先”、“顶级”→“高端”；
+4. 文案需合规、真实、得体，规避所有平台敏感词，不谐音、不变体、不绕弯。
+书摘通俗口语、起名简约有寓意、朋友圈文案贴合风格，全程合规。"""
 BASE_URL = "https://open.bigmodel.cn/api/paas/v4/"
-MODEL_NAME = "glm-4-flash"
+MODEL_NAME = "glm-4.6v"
+
+# 违禁词过滤配置
+BANNED_WORDS = {
+    "最", "第一", "唯一", "顶级", "国家级", "世界级", "极致", "极佳", "完美",
+    "NO.1", "TOP1", "全网第一", "销量第一", "独一无二", "仅此一次", "最后一波",
+    "100%", "纯天然", "永久", "万能", "特效", "史无前例", "前无古人", "祖传",
+    "秒杀", "万人疯抢", "全民免单", "再不抢就没", "点击领奖", "恭喜获奖",
+    "国家专供", "免检", "防癌", "抗癌", "根治", "无副作用"
+}
+REPLACE_MAP = {
+    "最好": "优选",
+    "第一": "领先",
+    "唯一": "专属",
+    "顶级": "高端",
+    "国家级": "高品质",
+    "100%": "高纯度",
+    "纯天然": "天然成分",
+    "秒杀": "限时优惠",
+    "万人疯抢": "人气热销"
+}
+
+def filter_banned_words(text: str) -> str:
+    for bad, good in REPLACE_MAP.items():
+        text = text.replace(bad, good)
+    for word in BANNED_WORDS:
+        if word in text:
+            text = text.replace(word, "***")
+    return text
 
 # 单例标记：数据库只初始化1次
 if "db_inited" not in st.session_state:
@@ -32,7 +66,6 @@ def init_db():
     cur.execute('''CREATE TABLE IF NOT EXISTS user_info(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE,password TEXT,role TEXT,create_time TEXT)''')
-    # 内置超级管理员admin禁止删除
     cur.execute("INSERT OR IGNORE INTO user_info(username,password,role,create_time) VALUES(?,?,?,?)",
                 ("admin","123456","manager",datetime.now().strftime("%Y-%m-%d %H:%M")))
     conn.commit()
@@ -106,7 +139,6 @@ def add_new_user(uname,pwd,role):
         return False
     conn.close()
 
-# 获取全部用户
 def get_all_user():
     conn=sqlite3.connect("user_data.db", check_same_thread=False)
     cur=conn.cursor()
@@ -115,7 +147,6 @@ def get_all_user():
     conn.close()
     return data
 
-# 【新增：管理员删除用户，禁止删除admin】
 def delete_user_by_id(uid,uname):
     if uname == "admin":
         return False,"超级管理员admin禁止删除"
@@ -247,6 +278,9 @@ if st.session_state.user_role=="manager":
     with user_bar[3]:
         if st.button("👥用户列表",type="secondary"):
             st.session_state.show_userlist=True
+    # 仅管理员展示Github相关入口
+    with user_bar[5]:
+        st.link_button("Github项目","https://github.com/")
 with user_bar[4]:
     if st.button("🚪退出",type="secondary"):
         st.session_state.login=False
@@ -255,7 +289,7 @@ with user_bar[4]:
         st.session_state.show_userlist=False
         st.rerun()
 
-# ==========管理员用户列表（新增删除按钮）==========
+# ==========管理员用户列表（删除用户）==========
 if st.session_state.show_userlist and st.session_state.user_role=="manager":
     with st.expander("👥全部用户管理列表 | 可删除非admin账号",expanded=True):
         alluser=get_all_user()
@@ -284,6 +318,7 @@ if st.session_state.show_userlist and st.session_state.user_role=="manager":
 #导航菜单
 st.markdown("### 📜 小政 AI 助手")
 base_menu=["💬 对话","📖 书摘","🏷️ 起名","📸 朋友圈文案"]
+# 管理员多出存档菜单，普通用户隐藏存档
 if st.session_state.user_role=="manager":
     nav_items=base_menu+["📂 我的存档"]
 else:
@@ -313,7 +348,7 @@ if func=="💬 对话":
         with st.chat_message("assistant"):st.markdown(ans)
         add_sql("chat",[msg,ans])
 
-#书摘（保留原版同类推荐）
+#书摘
 elif func=="📖 书摘":
     st.markdown('<div class="func-card"><h3>📖 书籍介绍 & 同类推荐</h3></div>',unsafe_allow_html=True)
     book_name = st.text_input("书名")
@@ -325,32 +360,39 @@ elif func=="📖 书摘":
             st.markdown(ans)
             add_sql("book", [book_name, author, ans])
 
-#起名
+#智能起名
 elif func=="🏷️ 起名":
     st.markdown('<div class="func-card"><h3>🏷️ AI起名</h3></div>',unsafe_allow_html=True)
     typ=st.selectbox("类型",["品牌店铺","宠物名字","网名笔名","小说角色"])
-    desc=st.text_input("风格描述")
+    desc=st.text_input("风格描述（如：古风雅致、简约大气、可爱日系、国风书香）")
     num=st.slider("数量",3,10,5)
     if st.button("✨生成名字",type="primary") and desc:
         with st.spinner("生成中..."):
-            rep=client.chat.completions.create(model=MODEL_NAME,messages=[{"role":"system","content":SYSTEM_PROMPT},{"role":"user","content":f"{num}个{typ}名字，{desc}"}])
+            ask_name = f"""根据需求智能起名：类型：{typ}，风格要求：{desc}。
+1、每个名字附带详细释义、寓意、出处；
+2、避开贬义谐音、生僻冷门字；
+3、排版工整，分点罗列；
+4、一共{num}个。"""
+            rep=client.chat.completions.create(model=MODEL_NAME,messages=[{"role":"system","content":SYSTEM_PROMPT},{"role":"user","content":ask_name}])
             txt=rep.choices[0].message.content
             st.markdown(txt)
             add_sql("name",[typ,desc,txt])
 
-#朋友圈文案
+#朋友圈文案+违禁过滤
 elif func=="📸 朋友圈文案":
     st.markdown('<div class="func-card"><h3>📸 朋友圈文案生成</h3></div>',unsafe_allow_html=True)
     sty=st.selectbox("风格",["日常随性","文艺走心","幽默搞笑","简约短句","氛围感"])
     scene=st.text_input("场景描述")
     if st.button("✨生成文案",type="primary") and scene:
         with st.spinner("生成中..."):
-            rep=client.chat.completions.create(model=MODEL_NAME,messages=[{"role":"system","content":SYSTEM_PROMPT},{"role":"user","content":f"{scene}，{sty}文案"}])
+            ask_copy = f"{scene}，写{sty}朋友圈文案，文案遵守广告法规，禁用极限夸大违规词汇"
+            rep=client.chat.completions.create(model=MODEL_NAME,messages=[{"role":"system","content":SYSTEM_PROMPT},{"role":"user","content":ask_copy}])
             txt=rep.choices[0].message.content
+            txt = filter_banned_words(txt)
             st.markdown(txt)
             add_sql("art",[sty,scene,txt])
 
-#存档仅管理员
+#存档仅管理员可见
 elif func=="📂 我的存档":
     if st.session_state.user_role=="manager":
         st.markdown('<div class="func-card"><h3>📂 全量内容存档</h3></div>',unsafe_allow_html=True)
