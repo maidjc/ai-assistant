@@ -1,4 +1,4 @@
-"""小政AI｜新增管理员删除用户 + 浅绿/深色书香主题+提速优化+强制登录+GLM-4.6V起名优化"""
+"""小政AI｜新增管理员删除用户 + 浅绿/深色书香主题+提速优化+强制登录"""
 import streamlit as st
 from openai import OpenAI
 from datetime import datetime
@@ -7,7 +7,7 @@ import sqlite3
 # ==========全局常量只初始化一次==========
 SYSTEM_PROMPT = """你是「小政」，风趣随和、接地气，日常聊天自然不生硬，无AI机械话术；书摘通俗口语、起名简约有寓意、朋友圈文案贴合风格。"""
 BASE_URL = "https://open.bigmodel.cn/api/paas/v4/"
-MODEL_NAME = "glm-4.6v"
+MODEL_NAME = "glm-4-flash"
 
 # 单例标记：数据库只初始化1次
 if "db_inited" not in st.session_state:
@@ -325,7 +325,7 @@ elif func=="📖 书摘":
             st.markdown(ans)
             add_sql("book", [book_name, author, ans])
 
-#起名【固定风格+额外要求+强关联输出】
+#起名【固定风格+额外要求+强关联输出，不还原】
 elif func=="🏷️ 起名":
     st.markdown('<div class="func-card"><h3>🏷️ AI起名</h3></div>',unsafe_allow_html=True)
     typ=st.selectbox("类型",["品牌/店铺","宠物名字","网名笔名","小说角色"])
