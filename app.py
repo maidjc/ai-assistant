@@ -1,12 +1,12 @@
-"""小政AI｜新增管理员删除用户 + 浅绿/深色书香主题+提速优化+强制登录+书摘纠错+卡通助手交互+起名优化"""
+"""小政AI｜新增管理员删除用户 + 浅绿/深色书香主题+提速优化+强制登录+书摘纠错+起名优化"""
 import streamlit as st
 from openai import OpenAI
 from datetime import datetime
-import sqlite3
+import sqlite
 
 # ==========全局常量只初始化一次==========
 SYSTEM_PROMPT = """你是「小政」，风趣随和、接地气，日常聊天自然不生硬，无AI机械话术；书摘通俗口语、起名简约有寓意、朋友圈文案贴合风格。
-【知识硬性规则】文史典籍严格遵从正史常识：《水浒传》原著作者施耐庵，罗贯中仅参与部分整理，禁止标注罗贯中为水浒传作者；各类名著、历史、专业领域内容杜绝常识错误，细分领域提问精准作答，不笼统敷衍。"""
+【知识硬性规则】文史严格规范：水浒传作者为施耐庵，不能写错；专业领域问题详细精准作答，不要笼统敷衍，普通常识正常回复。"""
 BASE_URL = "https://open.bigmodel.cn/api/paas/v4/"
 MODEL_NAME = "glm-4-flash"
 
@@ -144,7 +144,7 @@ client = st.session_state.ai_client
 #页面配置
 st.set_page_config(page_title="小政",page_icon="📜",layout="centered",initial_sidebar_state="collapsed")
 
-#CSS：新增悬浮卡通小人、深浅主题样式
+#CSS只渲染一次
 if "css_done" not in st.session_state:
     st.markdown("""
     <style>
@@ -173,19 +173,6 @@ if "css_done" not in st.session_state:
     .stButton>button[kind="primary"]:hover{background:#27672b;transform:translateY(-2px);}
     .stButton>button[kind="secondary"]{border:1px solid #b8a48c;background:transparent;}
     .stButton>button[kind="secondary"]:hover{border-color:#82674b;color:#82674b;}
-    /*悬浮卡通助手 */
-    .cartoon-helper{
-        position:fixed;
-        right:15px;
-        bottom:20px;
-        font-size:36px;
-        z-index:9999;
-        animation:shake 3s infinite ease-in-out;
-    }
-    @keyframes shake{
-        0%,100%{transform: translateY(0px)}
-        50%{transform: translateY(-8px)}
-    }
     </style>
     """,unsafe_allow_html=True)
     st.session_state.css_done = True
@@ -251,9 +238,6 @@ if not st.session_state.login:
     st.stop()
 
 #====================已登录进入系统====================
-#右下角悬浮卡通小人
-st.markdown('<div class="cartoon-helper">👦</div>',unsafe_allow_html=True)
-
 user_bar=st.columns([3,1,1,1,1,1,1])
 user_bar[0].write(f"👤{st.session_state.user_name}【{st.session_state.user_role}】")
 with user_bar[1]:
@@ -277,7 +261,7 @@ if st.session_state.show_userlist and st.session_state.user_role=="manager":
     with st.expander("👥全部用户管理列表 | 可删除非admin账号",expanded=True):
         alluser=get_all_user()
         st.markdown("|ID|用户名|权限|注册时间|操作|")
-        st.markdown("|----|----|----|----|----|")
+        st.markdown("|----|----|----|----|")
         for item in alluser:
             uid,uname,urole,utime=item
             col1,col2=st.columns([4,1])
@@ -330,29 +314,29 @@ if func=="💬 对话":
         with st.chat_message("assistant"):st.markdown(ans)
         add_sql("chat",[msg,ans])
 
-#书摘（保留原版同类推荐+知识纠错）
+#书摘（保留原版同类推荐）
 elif func=="📖 书摘":
     st.markdown('<div class="func-card"><h3>📖 书籍介绍 & 同类推荐</h3></div>',unsafe_allow_html=True)
     book_name = st.text_input("书名")
     author = st.text_input("作者（选填）")
     if st.button("📚 获取介绍", type="primary") and book_name:
         with st.spinner("整理内容中..."):
-            ask = f"详细介绍《{book_name}》作者{author}，包含基础信息、梗概、亮点、适合人群，顺带推荐同类好书，语言生活化，严格核对作者、历史常识，杜绝常识错误。"
+            ask = f"详细介绍《{book_name}》作者{author}，包含基础信息、梗概、亮点、适合人群，顺带推荐同类好书，语言生活化。"
             ans = client.chat.completions.create(model=MODEL_NAME,messages=[{"role":"system","content":SYSTEM_PROMPT},{"role":"user","content":ask}]).choices[0].message.content
             st.markdown(ans)
             add_sql("book", [book_name, author, ans])
 
-#起名【类型不变+风格下拉+补充要求输入框】
+#起名【类型不变+风格下拉+额外要求】
 elif func=="🏷️ 起名":
     st.markdown('<div class="func-card"><h3>🏷️ AI起名</h3></div>',unsafe_allow_html=True)
     typ=st.selectbox("类型",["品牌店铺","宠物名字","网名笔名","小说角色"])
     style=st.selectbox("风格",["简约清雅","古风诗意","温润治愈","清冷高级","大气稳重","可爱灵动"])
-    req=st.text_input("补充要求（字数、包含字、避讳字、行业方向）")
+    req=st.text_input("补充要求（字数、包含字、避讳字、取名方向）")
     num=st.slider("数量",3,10,5)
     if st.button("✨生成名字",type="primary"):
         with st.spinner("生成中..."):
-            prompt=f"为{typ}起{num}个名字，选定风格：{style}，补充需求：{req}，名字贴合品类属性、好听有寓意，每个附带简短释义，无多余开场白。"
-            rep=client.chat.completions.create(model=MODEL_NAME,messages=[{"role":"system","content":SYSTEM_PROMPT},{"role":"user","content":prompt}])
+            prompt=f"为{typ}起{num}个名字，风格：{style}，补充要求：{req}，名字贴合品类、雅致有寓意，每个附带简短释义，无多余话术"
+            rep=client.chat.completions.create(model=MODEL_NAME,messages=[{"role":"system","content":SYSTEM_PROMPT},{"role":"user",prompt}])
             txt=rep.choices[0].message.content
             st.markdown(txt)
             add_sql("name",[f"{typ}|{style}",req,txt])
@@ -364,7 +348,7 @@ elif func=="📸 朋友圈文案":
     scene=st.text_input("场景描述")
     if st.button("✨生成文案",type="primary") and scene:
         with st.spinner("生成中..."):
-            rep=client.chat.completions.create(model=MODEL_NAME,messages=[{"role":"system","content":SYSTEM_PROMPT},{"role":"user","content":f"{scene}，{sty}文案"}])
+            rep=client.chat.completions.create(model=MODEL_NAME,messages=[{"role":"system","content":SYSTEM_PROMPT},{"role":"user",f"{scene}，{sty}文案"}])
             txt=rep.choices[0].message.content
             st.markdown(txt)
             add_sql("art",[sty,scene,txt])
