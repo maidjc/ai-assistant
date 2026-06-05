@@ -4,12 +4,16 @@ from openai import OpenAI
 from datetime import datetime
 import sqlite3
 
-# ==========全局常量只初始化一次==========
-SYSTEM_PROMPT = """你是「小政」，风趣随和、接地气，日常聊天自然不生硬，无AI机械话术；书摘通俗口语、起名简约有寓意、朋友圈文案贴合风格。"""
+# ==========全局常量只初始化一次【优化系统提示词，修正名著、专业知识缺陷】==========
+SYSTEM_PROMPT = """你是「小政」，风趣随和、接地气，日常聊天自然不生硬，无AI机械话术；
+硬性知识规则：
+1. 通用常识正常通俗作答，**细分专业领域、文史、学科、行业问题必须严谨准确，不确定的知识点主动说明无法精准作答，不编造答案**；
+2. 古典名著固定史实：《水浒传》作者为施耐庵，所有书籍介绍、问答遇到此书统一使用该答案，严禁写错作者；
+3. 书摘内容客观贴合原著史实，起名简约有寓意、朋友圈文案贴合风格。"""
 BASE_URL = "https://open.bigmodel.cn/api/paas/v4/"
 MODEL_NAME = "glm-4-flash"
 
-# 单例标记：数据库只初始化一次
+# 单例标记：数据库只初始化1次
 if "db_inited" not in st.session_state:
     st.session_state.db_inited = False
 
@@ -32,6 +36,7 @@ def init_db():
     cur.execute('''CREATE TABLE IF NOT EXISTS user_info(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE,password TEXT,role TEXT,create_time TEXT)''')
+    # 内置超级管理员admin禁止删除
     cur.execute("INSERT OR IGNORE INTO user_info(username,password,role,create_time) VALUES(?,?,?,?)",
                 ("admin","123456","manager",datetime.now().strftime("%Y-%m-%d %H:%M")))
     conn.commit()
@@ -105,6 +110,7 @@ def add_new_user(uname,pwd,role):
         return False
     conn.close()
 
+# 获取全部用户
 def get_all_user():
     conn=sqlite3.connect("user_data.db", check_same_thread=False)
     cur=conn.cursor()
@@ -113,6 +119,7 @@ def get_all_user():
     conn.close()
     return data
 
+# 【新增：管理员删除用户，禁止删除admin】
 def delete_user_by_id(uid,uname):
     if uname == "admin":
         return False,"超级管理员admin禁止删除"
@@ -123,10 +130,12 @@ def delete_user_by_id(uid,uname):
     conn.close()
     return True,"删除成功"
 
+# 仅首次启动初始化数据库
 if not st.session_state.db_inited:
     init_db()
     st.session_state.db_inited = True
 
+# AI客户端只实例化一次
 if "ai_client" not in st.session_state:
     try:
         API_KEY = st.secrets["API_KEY"]
@@ -135,13 +144,16 @@ if "ai_client" not in st.session_state:
     st.session_state.ai_client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
 client = st.session_state.ai_client
 
+#页面配置
 st.set_page_config(page_title="小政",page_icon="📜",layout="centered",initial_sidebar_state="collapsed")
 
+#CSS只渲染一次
 if "css_done" not in st.session_state:
     st.markdown("""
     <style>
     *{font-family:"Microsoft Yahei","SimSun";}
     #MainMenu,footer,header,[data-testid="stToolbar"]{display:none !important;height:0;visibility:hidden;}
+    /*浅色清新绿色 */
     @media (prefers-color-scheme: light){
     .stApp{background:linear-gradient(135deg,#F1F8E9 0%,#E8F5E9 50%,#DCEDC8 100%) !important;background-attachment:fixed;color:#263238;}
     .func-card{background:rgba(255,255,255,0.92);border:1px solid #C8E6C9;border-radius:12px;padding:12px;box-shadow:0 3px 12px rgba(80,160,80,0.15);margin:5px 0;}
@@ -150,6 +162,7 @@ if "css_done" not in st.session_state:
     .stChatInput>div>div>div{background:#F1F8E9 !important;border:1px solid #C8E6C9;border-radius:20px;color:#263238;}
     .stTextInput input,.stTextArea textarea,.stSelectbox>div>div{background:rgba(255,255,255,0.9);border:1px solid #C8E6C9;border-radius:8px;color:#263238;}
     }
+    /*深色书香棕 */
     @media (prefers-color-scheme: dark){
     .stApp{background:linear-gradient(135deg,#2c261e 0%,#252018 50%,#1e1a14 100%) !important;background-attachment:fixed;color:#e8dfcc;}
     .func-card{background:rgba(45,39,30,0.92);border:1px solid #6b5c4b;border-radius:12px;padding:12px;box-shadow:0 3px 12px rgba(0,0,0,0.35);margin:5px 0;}
@@ -167,6 +180,7 @@ if "css_done" not in st.session_state:
     """,unsafe_allow_html=True)
     st.session_state.css_done = True
 
+#统一初始化会话
 init_keys = ["login","user_name","user_role","pop_login","pop_reg","pop_reset","pop_adduser","show_userlist","current_func","chat_history"]
 for k in init_keys:
     if k not in st.session_state:
@@ -175,6 +189,7 @@ for k in init_keys:
         elif k=="chat_history": st.session_state[k]=[]
         else: st.session_state[k]=False
 
+#====================未登录拦截：启动必须先登录====================
 if not st.session_state.login:
     st.markdown("# 📜 小政AI助手")
     st.warning("⚠️ 请先登录账号后使用全部功能，暂无账号可点击注册！")
@@ -225,6 +240,7 @@ if not st.session_state.login:
                     st.rerun()
     st.stop()
 
+#====================已登录进入系统====================
 user_bar=st.columns([3,1,1,1,1,1,1])
 user_bar[0].write(f"👤{st.session_state.user_name}【{st.session_state.user_role}】")
 with user_bar[1]:
@@ -243,6 +259,7 @@ with user_bar[4]:
         st.session_state.show_userlist=False
         st.rerun()
 
+# ==========管理员用户列表（新增删除按钮）==========
 if st.session_state.show_userlist and st.session_state.user_role=="manager":
     with st.expander("👥全部用户管理列表 | 可删除非admin账号",expanded=True):
         alluser=get_all_user()
@@ -268,6 +285,7 @@ if st.session_state.show_userlist and st.session_state.user_role=="manager":
             st.session_state.show_userlist=False
             st.rerun()
 
+#导航菜单
 st.markdown("### 📜 小政 AI 助手")
 base_menu=["💬 对话","📖 书摘","🏷️ 起名","📸 朋友圈文案"]
 if st.session_state.user_role=="manager":
@@ -285,6 +303,7 @@ for idx,name in enumerate(nav_items):
             st.rerun()
 func=st.session_state.current_func
 
+#对话
 if func=="💬 对话":
     for i in st.session_state.chat_history:
         with st.chat_message(i["role"]):st.markdown(i["content"])
@@ -298,32 +317,39 @@ if func=="💬 对话":
         with st.chat_message("assistant"):st.markdown(ans)
         add_sql("chat",[msg,ans])
 
+#书摘【额外强制水浒作者校验】
 elif func=="📖 书摘":
     st.markdown('<div class="func-card"><h3>📖 书籍介绍 & 同类推荐</h3></div>',unsafe_allow_html=True)
     book_name = st.text_input("书名")
     author = st.text_input("作者（选填）")
     if st.button("📚 获取介绍", type="primary") and book_name:
         with st.spinner("整理内容中..."):
-            ask = f"详细介绍《{book_name}》作者{author}，包含基础信息、梗概、亮点、适合人群，顺带推荐同类好书，语言生活化。"
+            # 专项强制：水浒传固定施耐庵
+            if "水浒" in book_name or "水浒传" in book_name:
+                fixed_author = "施耐庵"
+                ask = f"详细介绍《{book_name}》作者{fixed_author}，包含基础信息、梗概、亮点、适合人群，顺带推荐同类好书，语言生活化，作者严格固定施耐庵，不可修改。"
+            else:
+                ask = f"详细介绍《{book_name}》作者{author}，包含基础信息、梗概、亮点、适合人群，顺带推荐同类好书，专业内容严谨核实。"
             ans = client.chat.completions.create(model=MODEL_NAME,messages=[{"role":"system","content":SYSTEM_PROMPT},{"role":"user","content":ask}]).choices[0].message.content
             st.markdown(ans)
             add_sql("book", [book_name, author, ans])
 
-# 【最终版起名：类型不变+风格下拉+新增要求输入】
+#起名【类型原样+风格下拉+补充要求】
 elif func=="🏷️ 起名":
     st.markdown('<div class="func-card"><h3>🏷️ AI起名</h3></div>',unsafe_allow_html=True)
     typ=st.selectbox("类型",["品牌店铺","宠物名字","网名笔名","小说角色"])
-    style=st.selectbox("风格",["简约","文艺古风","温润治愈","大气高级","可爱清新","书香雅致"])
-    requirement=st.text_input("要求（字数、包含字、行业、寓意方向等）")
+    style=st.selectbox("风格",["简约清雅","古风诗意","温润治愈","清冷高级","大气稳重","可爱灵动"])
+    req=st.text_input("补充要求（字数、包含字、避讳字、行业、寓意方向）")
     num=st.slider("数量",3,10,5)
     if st.button("✨生成名字",type="primary"):
         with st.spinner("生成中..."):
-            prompt=f"请为{typ}生成{num}个名字，风格：{style}，补充要求：{requirement}，名字好听有寓意，每个附带简短释义，无多余话术"
+            prompt=f"为{typ}起{num}个名字，风格：{style}，补充要求：{req}，名字贴合品类、好听有寓意，每个附带简短释义，无多余开场白。"
             rep=client.chat.completions.create(model=MODEL_NAME,messages=[{"role":"system","content":SYSTEM_PROMPT},{"role":"user","content":prompt}])
             txt=rep.choices[0].message.content
             st.markdown(txt)
-            add_sql("name",[typ,f"{style}|{requirement}",txt])
+            add_sql("name",[f"{typ}|{style}",req,txt])
 
+#朋友圈文案
 elif func=="📸 朋友圈文案":
     st.markdown('<div class="func-card"><h3>📸 朋友圈文案生成</h3></div>',unsafe_allow_html=True)
     sty=st.selectbox("风格",["日常随性","文艺走心","幽默搞笑","简约短句","氛围感"])
@@ -335,6 +361,7 @@ elif func=="📸 朋友圈文案":
             st.markdown(txt)
             add_sql("art",[sty,scene,txt])
 
+#存档仅管理员
 elif func=="📂 我的存档":
     if st.session_state.user_role=="manager":
         st.markdown('<div class="func-card"><h3>📂 全量内容存档</h3></div>',unsafe_allow_html=True)
@@ -366,6 +393,7 @@ elif func=="📂 我的存档":
     else:
         st.warning("仅管理员可查看存档")
 
+# 修改密码弹窗
 if st.session_state.pop_reset:
     with st.expander("🔑 修改密码",expanded=True):
         np=st.text_input("新密码",type="password",key="newp")
@@ -377,6 +405,7 @@ if st.session_state.pop_reset:
         with cc2:
             if st.button("取消",key="resetclose"):st.session_state.pop_reset=False;st.rerun()
 
+#管理员新建账号弹窗
 if st.session_state.pop_adduser and st.session_state.user_role=="manager":
     with st.expander("➕管理员创建账号",expanded=True):
         au=st.text_input("新建用户名",key="adduser")
