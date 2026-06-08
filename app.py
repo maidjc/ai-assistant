@@ -1,4 +1,4 @@
-"""小政AI助手 - 登录注册弹窗网页居中 + 竹子背景 + 小按钮 + 个人中心"""
+"""小政AI助手 - 弹窗内文字+按钮完全居中 | 网页居中弹窗+竹子背景+全套功能"""
 import streamlit as st
 from openai import OpenAI
 from datetime import datetime
@@ -128,7 +128,6 @@ def delete_user_by_id(uid,uname):
     if uname == "admin":
         return False,"超级管理员admin禁止删除"
     conn=sqlite3.connect("user_data.db", check_same_thread=False)
-    cur=conn.cursor()
     cur.execute("DELETE FROM user_info WHERE id=?",(uid,))
     conn.commit()
     conn.close()
@@ -148,7 +147,7 @@ if "ai_client" not in st.session_state:
     st.session_state.ai_client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
 client = st.session_state.ai_client
 
-# ========== 全局CSS：弹窗居中 + 竹子背景 + 小按钮 ==========
+# ========== 全局CSS：弹窗居中 + 内部组件全部居中 + 竹子背景 ==========
 st.set_page_config(page_title="小政AI助手",page_icon="🎋",layout="wide",initial_sidebar_state="expanded")
 
 if "css_done" not in st.session_state:
@@ -165,7 +164,7 @@ if "css_done" not in st.session_state:
         text-align: center;
     }
 
-    /* ========== 弹窗绝对居中（核心：登录/注册弹窗网页正中） ========== */
+    /* ========== 弹窗整体：网页绝对居中 ========== */
     div[data-testid="stModal"] {
         position: fixed !important;
         top: 50% !important;
@@ -177,6 +176,27 @@ if "css_done" not in st.session_state:
     div[data-testid="stModal"] > div {
         border-radius: 12px !important;
         box-shadow: 0 4px 20px rgba(0,0,0,0.15) !important;
+    }
+
+    /* ========== 核心修复：弹窗内部所有组件居中 ========== */
+    /* 弹窗内垂直容器居中 */
+    div[data-testid="stModal"] [data-testid="stVerticalBlock"] {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        text-align: center !important;
+        width: 100% !important;
+        padding: 10px 20px !important;
+    }
+    /* 弹窗输入框宽度适配+居中 */
+    div[data-testid="stModal"] .stTextInput {
+        width: 90% !important;
+        margin: 8px auto !important;
+    }
+    /* 弹窗文字居中 */
+    div[data-testid="stModal"] p,
+    div[data-testid="stModal"] label {
+        text-align: center !important;
     }
 
     /* ========== 浅色模式：竹子背景 + 书香绿调 ========== */
@@ -214,7 +234,7 @@ if "css_done" not in st.session_state:
 
     /* 功能卡片 - 竹色边框 */
     .func-card {
-        background:rgba(255,255,255,0.85);
+        background:rgba(255,255,0.85);
         border:1px solid #a8c9a0;
         border-radius:12px; padding:20px; margin:15px 0;
         box-shadow: 0 2px 8px rgba(120, 165, 110, 0.15);
@@ -303,7 +323,7 @@ for k in init_keys:
 if not st.session_state.login:
     st.markdown('<div class="center-box">', unsafe_allow_html=True)
     st.title("🎋 小政AI助手")
-    st.info("欢迎使用，点击下方按钮登录或注册账号")
+    st.info("欢迎使用，点击下方按钮登录或注册")
 
     if st.button("🔐 登录账号", type="primary"):
         st.session_state.pop_login = True
@@ -314,12 +334,13 @@ if not st.session_state.login:
         st.session_state.pop_reg = True
         st.session_state.pop_login = False
 
-    # 登录弹窗（网页绝对居中）
+    # 登录弹窗（内部组件全部居中）
     if st.session_state.pop_login:
         with st.modal("用户登录", is_open=True):
             u = st.text_input("账号", key="lu")
             p = st.text_input("密码", type="password", key="lp")
-            col1, col2 = st.columns(2)
+            # 使用均等列+垂直居中，按钮居中展示
+            col1, col2 = st.columns([1,1], vertical_alignment="center")
             with col1:
                 if st.button("确认登录", type="primary", key="loginok"):
                     res = check_user(u, p)
@@ -336,12 +357,12 @@ if not st.session_state.login:
                     st.session_state.pop_login = False
                     st.rerun()
 
-    # 注册弹窗（网页绝对居中）
+    # 注册弹窗（内部组件全部居中）
     if st.session_state.pop_reg:
         with st.modal("新用户注册", is_open=True):
             ru = st.text_input("设置用户名", key="ru")
             rp = st.text_input("设置密码", type="password", key="rp")
-            col1, col2 = st.columns(2)
+            col1, col2 = st.columns([1,1], vertical_alignment="center")
             with col1:
                 if st.button("完成注册", type="primary", key="regok") and ru and rp:
                     if add_new_user(ru, rp, "user"):
