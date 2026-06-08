@@ -1,4 +1,4 @@
-"""小政AI助手 - 登录+注册改为弹窗 | 居中布局+小按钮+竹子背景+个人中心"""
+"""小政AI助手 - 登录注册弹窗网页居中 + 竹子背景 + 小按钮 + 个人中心"""
 import streamlit as st
 from openai import OpenAI
 from datetime import datetime
@@ -148,7 +148,7 @@ if "ai_client" not in st.session_state:
     st.session_state.ai_client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
 client = st.session_state.ai_client
 
-# ========== 页面全局配置 + 居中+小按钮+竹子古风CSS ==========
+# ========== 全局CSS：弹窗居中 + 竹子背景 + 小按钮 ==========
 st.set_page_config(page_title="小政AI助手",page_icon="🎋",layout="wide",initial_sidebar_state="expanded")
 
 if "css_done" not in st.session_state:
@@ -163,6 +163,20 @@ if "css_done" not in st.session_state:
         max-width: 600px;
         margin: 80px auto 0 auto;
         text-align: center;
+    }
+
+    /* ========== 弹窗绝对居中（核心：登录/注册弹窗网页正中） ========== */
+    div[data-testid="stModal"] {
+        position: fixed !important;
+        top: 50% !important;
+        left: 50% !important;
+        transform: translate(-50%, -50%) !important;
+        width: 420px !important;
+        max-width: 90% !important;
+    }
+    div[data-testid="stModal"] > div {
+        border-radius: 12px !important;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15) !important;
     }
 
     /* ========== 浅色模式：竹子背景 + 书香绿调 ========== */
@@ -285,24 +299,22 @@ for k in init_keys:
         else:
             st.session_state[k]=False
 
-# ========== 未登录首页：居中 + 入口按钮（登录/注册弹窗触发） ==========
+# ========== 未登录首页：居中入口 + 弹窗登录/注册 ==========
 if not st.session_state.login:
     st.markdown('<div class="center-box">', unsafe_allow_html=True)
     st.title("🎋 小政AI助手")
     st.info("欢迎使用，点击下方按钮登录或注册账号")
 
-    # 触发登录弹窗
     if st.button("🔐 登录账号", type="primary"):
         st.session_state.pop_login = True
         st.session_state.pop_reg = False
     st.divider()
 
-    # 触发注册弹窗
     if st.button("📝 新用户注册", type="secondary"):
         st.session_state.pop_reg = True
         st.session_state.pop_login = False
 
-    # 登录弹窗
+    # 登录弹窗（网页绝对居中）
     if st.session_state.pop_login:
         with st.modal("用户登录", is_open=True):
             u = st.text_input("账号", key="lu")
@@ -324,7 +336,7 @@ if not st.session_state.login:
                     st.session_state.pop_login = False
                     st.rerun()
 
-    # 注册弹窗
+    # 注册弹窗（网页绝对居中）
     if st.session_state.pop_reg:
         with st.modal("新用户注册", is_open=True):
             ru = st.text_input("设置用户名", key="ru")
