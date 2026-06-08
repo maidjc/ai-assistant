@@ -1,4 +1,4 @@
-"""小政AI助手 - 居中布局 + 小号按钮 + 竹子古风背景 + 个人中心 + 登录竖排"""
+"""小政AI助手 - 登录+注册改为弹窗 | 居中布局+小按钮+竹子背景+个人中心"""
 import streamlit as st
 from openai import OpenAI
 from datetime import datetime
@@ -285,37 +285,64 @@ for k in init_keys:
         else:
             st.session_state[k]=False
 
-# ========== 未登录页面：居中 + 按钮竖排 + 小按钮 ==========
+# ========== 未登录首页：居中 + 入口按钮（登录/注册弹窗触发） ==========
 if not st.session_state.login:
     st.markdown('<div class="center-box">', unsafe_allow_html=True)
     st.title("🎋 小政AI助手")
-    st.warning("⚠️ 请先登录账号后使用全部功能，暂无账号可点击注册！")
+    st.info("欢迎使用，点击下方按钮登录或注册账号")
 
-    st.button("🔐 去登录",type="primary")
+    # 触发登录弹窗
+    if st.button("🔐 登录账号", type="primary"):
+        st.session_state.pop_login = True
+        st.session_state.pop_reg = False
     st.divider()
-    st.button("📝 新用户注册",type="secondary")
 
+    # 触发注册弹窗
+    if st.button("📝 新用户注册", type="secondary"):
+        st.session_state.pop_reg = True
+        st.session_state.pop_login = False
+
+    # 登录弹窗
     if st.session_state.pop_login:
-        with st.expander("🔐 用户登录",expanded=True):
-            u=st.text_input("账号",key="lu")
-            p=st.text_input("密码",type="password",key="lp")
-            st.button("登录",type="primary",key="loginok")
-            st.divider()
-            st.button("关闭",key="logclose")
-
-    if st.session_state.pop_reg:
-        with st.expander("📝 新用户注册(默认普通用户)",expanded=True):
-            ru=st.text_input("用户名",key="ru")
-            rp=st.text_input("密码",type="password",key="rp")
-            if st.button("完成注册",type="primary",key="regok") and ru and rp:
-                if add_new_user(ru,rp,"user"):
-                    st.success("注册成功！前往登录")
-                    st.session_state.pop_reg=False
+        with st.modal("用户登录", is_open=True):
+            u = st.text_input("账号", key="lu")
+            p = st.text_input("密码", type="password", key="lp")
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("确认登录", type="primary", key="loginok"):
+                    res = check_user(u, p)
+                    if res:
+                        st.session_state.login = True
+                        st.session_state.user_name = u
+                        st.session_state.user_role = res[0]
+                        st.session_state.pop_login = False
+                        st.rerun()
+                    else:
+                        st.error("账号或密码错误")
+            with col2:
+                if st.button("关闭", key="logclose"):
+                    st.session_state.pop_login = False
                     st.rerun()
-                else:
-                    st.error("用户名已被占用")
-            st.divider()
-            st.button("关闭",key="regclose")
+
+    # 注册弹窗
+    if st.session_state.pop_reg:
+        with st.modal("新用户注册", is_open=True):
+            ru = st.text_input("设置用户名", key="ru")
+            rp = st.text_input("设置密码", type="password", key="rp")
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("完成注册", type="primary", key="regok") and ru and rp:
+                    if add_new_user(ru, rp, "user"):
+                        st.success("注册成功，请前往登录！")
+                        st.session_state.pop_reg = False
+                        st.rerun()
+                    else:
+                        st.error("用户名已存在")
+            with col2:
+                if st.button("关闭", key="regclose"):
+                    st.session_state.pop_reg = False
+                    st.rerun()
+
     st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
 
