@@ -1,4 +1,4 @@
-"""小政AI助手 - 弹窗内文字+按钮完全居中 | 网页居中弹窗+竹子背景+全套功能"""
+"""小政AI助手 - 豆包布局 + 竹子背景 + 普通用户个人中心 + 登录竖排按钮 + 存档KeyError修复"""
 import streamlit as st
 from openai import OpenAI
 from datetime import datetime
@@ -89,6 +89,7 @@ def check_user(uname,pwd):
     conn.close()
     return res
 
+# 新增：查询用户明文密码，用于个人中心展示
 def get_user_pwd(uname):
     conn=sqlite3.connect("user_data.db", check_same_thread=False)
     cur=conn.cursor()
@@ -128,6 +129,7 @@ def delete_user_by_id(uid,uname):
     if uname == "admin":
         return False,"超级管理员admin禁止删除"
     conn=sqlite3.connect("user_data.db", check_same_thread=False)
+    cur=conn.cursor()
     cur.execute("DELETE FROM user_info WHERE id=?",(uid,))
     conn.commit()
     conn.close()
@@ -147,7 +149,7 @@ if "ai_client" not in st.session_state:
     st.session_state.ai_client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
 client = st.session_state.ai_client
 
-# ========== 全局CSS：弹窗居中 + 内部组件全部居中 + 竹子背景 ==========
+# ========== 页面全局配置 + 竹子古风CSS ==========
 st.set_page_config(page_title="小政AI助手",page_icon="🎋",layout="wide",initial_sidebar_state="expanded")
 
 if "css_done" not in st.session_state:
@@ -156,48 +158,6 @@ if "css_done" not in st.session_state:
     /* 全局基础样式 */
     *{font-family:"Microsoft Yahei", "KaiTi", sans-serif !important; margin:0; padding:0;}
     #MainMenu, footer, header, [data-testid="stToolbar"] {display:none !important; height:0;}
-
-    /* 页面整体居中容器 */
-    .center-box {
-        max-width: 600px;
-        margin: 80px auto 0 auto;
-        text-align: center;
-    }
-
-    /* ========== 弹窗整体：网页绝对居中 ========== */
-    div[data-testid="stModal"] {
-        position: fixed !important;
-        top: 50% !important;
-        left: 50% !important;
-        transform: translate(-50%, -50%) !important;
-        width: 420px !important;
-        max-width: 90% !important;
-    }
-    div[data-testid="stModal"] > div {
-        border-radius: 12px !important;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.15) !important;
-    }
-
-    /* ========== 核心修复：弹窗内部所有组件居中 ========== */
-    /* 弹窗内垂直容器居中 */
-    div[data-testid="stModal"] [data-testid="stVerticalBlock"] {
-        display: flex !important;
-        flex-direction: column !important;
-        align-items: center !important;
-        text-align: center !important;
-        width: 100% !important;
-        padding: 10px 20px !important;
-    }
-    /* 弹窗输入框宽度适配+居中 */
-    div[data-testid="stModal"] .stTextInput {
-        width: 90% !important;
-        margin: 8px auto !important;
-    }
-    /* 弹窗文字居中 */
-    div[data-testid="stModal"] p,
-    div[data-testid="stModal"] label {
-        text-align: center !important;
-    }
 
     /* ========== 浅色模式：竹子背景 + 书香绿调 ========== */
     .stApp {
@@ -217,24 +177,17 @@ if "css_done" not in st.session_state:
         border-right: 2px solid #a8c9a0;
     }
     [data-testid="stSidebar"] .block-container {padding:10px 0;}
-
-    /* 侧边栏按钮：缩小宽度、不全屏拉伸 */
     [data-testid="stSidebar"] .stButton button {
-        width:90% !important;
-        margin:4px auto;
-        text-align:left;
-        padding:8px 12px;
-        border-radius:8px;
-        border:1px solid #b8d4af;
-        font-size:14px;
-        background:#ffffff80;
+        width:100% !important; text-align:left; padding:10px 14px;
+        border-radius:8px; border:1px solid #b8d4af;
+        margin:4px 0; font-size:15px; background:#ffffff80;
     }
     [data-testid="stSidebar"] .stButton button:hover {background:#d8e9d0;}
     [data-testid="stSidebar"] .stButton button[kind="primary"] {background:#8fb882; color:#ffffff; border-color:#7ca56f;}
 
     /* 功能卡片 - 竹色边框 */
     .func-card {
-        background:rgba(255,255,0.85);
+        background:rgba(255,255,255,0.85);
         border:1px solid #a8c9a0;
         border-radius:12px; padding:20px; margin:15px 0;
         box-shadow: 0 2px 8px rgba(120, 165, 110, 0.15);
@@ -244,15 +197,6 @@ if "css_done" not in st.session_state:
     .stTextInput input, .stTextArea textarea, .stSelectbox > div > div {
         border-radius:8px; border:1px solid #b8d4af;
         padding:8px 12px; background:#ffffff90;
-    }
-
-    /* 通用按钮：统一缩小、居中、不自适应全屏 */
-    div.stButton > button {
-        min-width: 120px !important;
-        max-width: 180px !important;
-        padding: 6px 16px !important;
-        font-size: 14px !important;
-        margin: 6px auto !important;
     }
 
     /* ========== 聊天气泡 ========== */
@@ -319,72 +263,60 @@ for k in init_keys:
         else:
             st.session_state[k]=False
 
-# ========== 未登录首页：居中入口 + 弹窗登录/注册 ==========
+# ========== 未登录页面：登录注册按钮竖排（修改点1） ==========
 if not st.session_state.login:
-    st.markdown('<div class="center-box">', unsafe_allow_html=True)
     st.title("🎋 小政AI助手")
-    st.info("欢迎使用，点击下方按钮登录或注册")
-
-    if st.button("🔐 登录账号", type="primary"):
-        st.session_state.pop_login = True
-        st.session_state.pop_reg = False
+    st.warning("⚠️ 请先登录账号后使用全部功能，暂无账号可点击注册！")
+    # 改为竖排上下两个按钮，不再分两列
+    if st.button("🔐 去登录",type="primary",use_container_width=True):
+        st.session_state.pop_login=True
     st.divider()
+    if st.button("📝 新用户注册",type="secondary",use_container_width=True):
+        st.session_state.pop_reg=True
 
-    if st.button("📝 新用户注册", type="secondary"):
-        st.session_state.pop_reg = True
-        st.session_state.pop_login = False
-
-    # 登录弹窗（内部组件全部居中）
     if st.session_state.pop_login:
-        with st.modal("用户登录", is_open=True):
-            u = st.text_input("账号", key="lu")
-            p = st.text_input("密码", type="password", key="lp")
-            # 使用均等列+垂直居中，按钮居中展示
-            col1, col2 = st.columns([1,1], vertical_alignment="center")
-            with col1:
-                if st.button("确认登录", type="primary", key="loginok"):
-                    res = check_user(u, p)
-                    if res:
-                        st.session_state.login = True
-                        st.session_state.user_name = u
-                        st.session_state.user_role = res[0]
-                        st.session_state.pop_login = False
-                        st.rerun()
-                    else:
-                        st.error("账号或密码错误")
-            with col2:
-                if st.button("关闭", key="logclose"):
-                    st.session_state.pop_login = False
+        with st.expander("🔐 用户登录",expanded=True):
+            u=st.text_input("账号",key="lu")
+            p=st.text_input("密码",type="password",key="lp")
+            # 登录弹窗按钮也竖排
+            if st.button("登录",type="primary",key="loginok",use_container_width=True):
+                res=check_user(u,p)
+                if res:
+                    st.session_state.login=True
+                    st.session_state.user_name=u
+                    st.session_state.user_role=res[0]
+                    st.session_state.pop_login=False
                     st.rerun()
-
-    # 注册弹窗（内部组件全部居中）
+                else:
+                    st.error("账号或密码错误")
+            st.divider()
+            if st.button("关闭",key="logclose",use_container_width=True):
+                st.session_state.pop_login=False
+                st.rerun()
     if st.session_state.pop_reg:
-        with st.modal("新用户注册", is_open=True):
-            ru = st.text_input("设置用户名", key="ru")
-            rp = st.text_input("设置密码", type="password", key="rp")
-            col1, col2 = st.columns([1,1], vertical_alignment="center")
-            with col1:
-                if st.button("完成注册", type="primary", key="regok") and ru and rp:
-                    if add_new_user(ru, rp, "user"):
-                        st.success("注册成功，请前往登录！")
-                        st.session_state.pop_reg = False
-                        st.rerun()
-                    else:
-                        st.error("用户名已存在")
-            with col2:
-                if st.button("关闭", key="regclose"):
-                    st.session_state.pop_reg = False
+        with st.expander("📝 新用户注册(默认普通用户)",expanded=True):
+            ru=st.text_input("用户名",key="ru")
+            rp=st.text_input("密码",type="password",key="rp")
+            if st.button("完成注册",type="primary",key="regok",use_container_width=True) and ru and rp:
+                if add_new_user(ru,rp,"user"):
+                    st.success("注册成功！前往登录")
+                    st.session_state.pop_reg=False
                     st.rerun()
-
-    st.markdown('</div>', unsafe_allow_html=True)
+                else:
+                    st.error("用户名已被占用")
+            st.divider()
+            if st.button("关闭",key="regclose",use_container_width=True):
+                st.session_state.pop_reg=False
+                st.rerun()
     st.stop()
 
-# ========== 已登录：左侧侧边栏导航 ==========
+# ========== 已登录：左侧侧边栏导航（新增个人中心菜单） ==========
 with st.sidebar:
     st.markdown(f"### 🎋 {st.session_state.user_name}")
     st.caption(f"权限：{st.session_state.user_role}")
     st.divider()
 
+    # 新增个人中心到菜单最上方
     base_menu=["👤 个人中心","💬 对话","📖 书摘","🏷️ 起名","📸 朋友圈文案"]
     if st.session_state.user_role=="manager":
         nav_items=base_menu+["📂 我的存档"]
@@ -395,17 +327,19 @@ with st.sidebar:
         st.session_state.current_func=nav_items[0]
     for name in nav_items:
         active = (st.session_state.current_func == name)
-        if st.button(name, type="primary" if active else "secondary"):
+        if st.button(name, use_container_width=True, type="primary" if active else "secondary"):
             st.session_state.current_func=name
             st.rerun()
 
     st.divider()
+    # 管理员专属按钮
     if st.session_state.user_role=="manager":
-        if st.button("➕ 新建账号"):
+        if st.button("➕ 新建账号",use_container_width=True):
             st.session_state.pop_adduser=True
-        if st.button("👥 用户列表"):
+        if st.button("👥 用户列表",use_container_width=True):
             st.session_state.show_userlist=True
-    if st.button("🚪 退出登录"):
+    # 退出登录
+    if st.button("🚪 退出登录",use_container_width=True):
         st.session_state.login=False
         st.session_state.user_name=""
         st.session_state.user_role=""
@@ -415,9 +349,8 @@ with st.sidebar:
 # ========== 右侧主内容区 ==========
 func=st.session_state.current_func
 
-# 1. 个人中心
+# 1. 新增【个人中心】页面（修改点2）
 if func=="👤 个人中心":
-    st.markdown('<div class="center-box">', unsafe_allow_html=True)
     st.markdown('<div class="func-card"><h3>👤 个人账户信息</h3></div>',unsafe_allow_html=True)
     uname = st.session_state.user_name
     upwd = get_user_pwd(uname)
@@ -426,6 +359,7 @@ if func=="👤 个人中心":
     st.write(f"账户名称：{uname}")
     st.write(f"账户权限：{st.session_state.user_role}")
 
+    # 密码显示/隐藏切换
     show_pwd = st.checkbox("显示完整密码", value=st.session_state.show_pwd)
     st.session_state.show_pwd = show_pwd
     if show_pwd:
@@ -440,7 +374,6 @@ if func=="👤 个人中心":
         reset_pwd(uname, new_pwd)
         st.success("密码修改成功，请牢记新密码！")
         st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
 
 # 2. 对话模块
 elif func=="💬 对话":
@@ -462,7 +395,6 @@ elif func=="💬 对话":
 
 # 3. 书摘模块
 elif func=="📖 书摘":
-    st.markdown('<div class="center-box">', unsafe_allow_html=True)
     st.markdown('<div class="func-card"><h3>📖 书籍介绍 & 同类推荐</h3></div>',unsafe_allow_html=True)
     book_name = st.text_input("书名")
     author = st.text_input("作者（选填）")
@@ -472,11 +404,9 @@ elif func=="📖 书摘":
             ans = client.chat.completions.create(model=MODEL_NAME,messages=[{"role":"system","content":SYSTEM_PROMPT},{"role":"user","content":ask}]).choices[0].message.content
             st.markdown(ans)
             add_sql("book", [book_name, author, ans])
-    st.markdown('</div>', unsafe_allow_html=True)
 
 # 4. 起名模块
 elif func=="🏷️ 起名":
-    st.markdown('<div class="center-box">', unsafe_allow_html=True)
     st.markdown('<div class="func-card"><h3>🏷️ AI起名</h3></div>',unsafe_allow_html=True)
     typ=st.selectbox("类型",["品牌店铺","宠物名字","网名笔名","小说角色"])
     style=st.selectbox("风格",["简约清雅","古风诗意","温润治愈","清冷高级","大气稳重","可爱灵动"])
@@ -489,11 +419,9 @@ elif func=="🏷️ 起名":
             txt=rep.choices[0].message.content
             st.markdown(txt)
             add_sql("name",[f"{typ}|{style}",req,txt])
-    st.markdown('</div>', unsafe_allow_html=True)
 
 # 5. 朋友圈文案
 elif func=="📸 朋友圈文案":
-    st.markdown('<div class="center-box">', unsafe_allow_html=True)
     st.markdown('<div class="func-card"><h3>📸 朋友圈文案生成</h3></div>',unsafe_allow_html=True)
     sty=st.selectbox("风格",["日常随性","文艺走心","幽默搞笑","简约短句","氛围感"])
     scene=st.text_input("场景描述")
@@ -503,9 +431,8 @@ elif func=="📸 朋友圈文案":
             txt=rep.choices[0].message.content
             st.markdown(txt)
             add_sql("art",[sty,scene,txt])
-    st.markdown('</div>', unsafe_allow_html=True)
 
-# 6. 我的存档
+# 6. 存档（已修复KeyError）
 elif func=="📂 我的存档":
     if st.session_state.user_role=="manager":
         st.markdown('<div class="func-card"><h3>📂 全量内容存档</h3></div>',unsafe_allow_html=True)
@@ -538,19 +465,21 @@ elif func=="📂 我的存档":
         st.warning("仅管理员可查看存档")
 
 # ========== 管理员弹窗功能 ==========
+# 新建账号弹窗
 if st.session_state.pop_adduser and st.session_state.user_role=="manager":
     with st.expander("➕管理员创建账号",expanded=True):
         au=st.text_input("新建用户名",key="adduser")
         ap=st.text_input("新建密码",type="password",key="addpwd")
         ar=st.selectbox("账号权限",["user普通用户","manager管理员"],key="addrole")
         real_r=ar.replace("普通用户","").replace("管理员","")
-        if st.button("创建",type="primary",key="addok") and au and ap:
+        if st.button("创建",type="primary",key="addok",use_container_width=True) and au and ap:
             if add_new_user(au,ap,real_r):
                 st.success("创建成功");st.session_state.pop_adduser=False;st.rerun()
             else:st.error("用户名重复")
         st.divider()
-        st.button("关闭",key="addclose")
+        if st.button("关闭",key="addclose",use_container_width=True):st.session_state.pop_adduser=False;st.rerun()
 
+# 用户列表弹窗
 if st.session_state.show_userlist and st.session_state.user_role=="manager":
     with st.expander("👥全部用户管理列表 | 可删除非admin账号",expanded=True):
         alluser=get_all_user()
@@ -572,4 +501,6 @@ if st.session_state.show_userlist and st.session_state.user_role=="manager":
                             st.warning(msg)
                 else:
                     st.text("不可删")
-        st.button("关闭列表")
+        if st.button("关闭列表",use_container_width=True):
+            st.session_state.show_userlist=False
+            st.rerun()
