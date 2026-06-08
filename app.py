@@ -1,8 +1,13 @@
-"""小政AI助手 - 豆包布局 + 竹子背景 + 普通用户个人中心 + 登录竖排按钮 + 存档KeyError修复"""
+"""
+小政AI助手 最终版
+功能：豆包布局+竹子古风背景+个人中心+登录竖排+多设备并发访问+多用户会话隔离
+适配：多电脑/手机同时在线，聊天记录、账号状态完全隔离
+"""
 import streamlit as st
 from openai import OpenAI
 from datetime import datetime
 import sqlite3
+import threading
 
 # ========== 全局常量 & 系统提示词 ==========
 SYSTEM_PROMPT = """你是「小政」，风趣随和、接地气，日常聊天自然不生硬，无AI机械话术；
@@ -12,135 +17,148 @@ SYSTEM_PROMPT = """你是「小政」，风趣随和、接地气，日常聊天�
 BASE_URL = "https://open.bigmodel.cn/api/paas/v4/"
 MODEL_NAME = "glm-4-flash"
 
+# 数据库锁：解决多用户并发读写SQLite报错
+DB_LOCK = threading.Lock()
+
 # 单例标记：数据库只初始化1次
 if "db_inited" not in st.session_state:
     st.session_state.db_inited = False
 
-# ========== 数据库函数 ==========
+# ========== 数据库函数（增加线程锁，支持多用户并发） ==========
 def init_db():
-    conn = sqlite3.connect("user_data.db", check_same_thread=False)
-    cur = conn.cursor()
-    cur.execute('''CREATE TABLE IF NOT EXISTS book_record(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        book_name TEXT,author TEXT,content TEXT,create_time TEXT)''')
-    cur.execute('''CREATE TABLE IF NOT EXISTS name_record(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        type TEXT,desc TEXT,result TEXT,create_time TEXT)''')
-    cur.execute('''CREATE TABLE IF NOT EXISTS art_record(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        style TEXT,scene TEXT,content TEXT,create_time TEXT)''')
-    cur.execute('''CREATE TABLE IF NOT EXISTS chat_record(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        ask TEXT,reply TEXT,create_time TEXT)''')
-    cur.execute('''CREATE TABLE IF NOT EXISTS user_info(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE,password TEXT,role TEXT,create_time TEXT)''')
-    cur.execute("INSERT OR IGNORE INTO user_info(username,password,role,create_time) VALUES(?,?,?,?)",
-                ("admin","123456","manager",datetime.now().strftime("%Y-%m-%d %H:%M")))
-    conn.commit()
-    conn.close()
+    with DB_LOCK:
+        conn = sqlite3.connect("user_data.db", check_same_thread=False)
+        cur = conn.cursor()
+        cur.execute('''CREATE TABLE IF NOT EXISTS book_record(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            book_name TEXT,author TEXT,content TEXT,create_time TEXT)''')
+        cur.execute('''CREATE TABLE IF NOT EXISTS name_record(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            type TEXT,desc TEXT,result TEXT,create_time TEXT)''')
+        cur.execute('''CREATE TABLE IF NOT EXISTS art_record(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            style TEXT,scene TEXT,content TEXT,create_time TEXT)''')
+        cur.execute('''CREATE TABLE IF NOT EXISTS chat_record(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ask TEXT,reply TEXT,create_time TEXT)''')
+        cur.execute('''CREATE TABLE IF NOT EXISTS user_info(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE,password TEXT,role TEXT,create_time TEXT)''')
+        cur.execute("INSERT OR IGNORE INTO user_info(username,password,role,create_time) VALUES(?,?,?,?)",
+                    ("admin","123456","manager",datetime.now().strftime("%Y-%m-%d %H:%M")))
+        conn.commit()
+        conn.close()
 
 def add_sql(table, data):
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
-    conn = sqlite3.connect("user_data.db", check_same_thread=False)
-    cur = conn.cursor()
-    sql_map = {
-        "book":"INSERT INTO book_record(book_name,author,content,create_time) VALUES(?,?,?,?)",
-        "name":"INSERT INTO name_record(type,desc,result,create_time) VALUES(?,?,?,?)",
-        "art":"INSERT INTO art_record(style,scene,content,create_time) VALUES(?,?,?,?)",
-        "chat":"INSERT INTO chat_record(ask,reply,create_time) VALUES(?,?,?)"
-    }
-    cur.execute(sql_map[table], (*data, now))
-    conn.commit()
-    conn.close()
+    with DB_LOCK:
+        conn = sqlite3.connect("user_data.db", check_same_thread=False)
+        cur = conn.cursor()
+        sql_map = {
+            "book":"INSERT INTO book_record(book_name,author,content,create_time) VALUES(?,?,?,?)",
+            "name":"INSERT INTO name_record(type,desc,result,create_time) VALUES(?,?,?,?)",
+            "art":"INSERT INTO art_record(style,scene,content,create_time) VALUES(?,?,?,?)",
+            "chat":"INSERT INTO chat_record(ask,reply,create_time) VALUES(?,?,?)"
+        }
+        cur.execute(sql_map[table], (*data, now))
+        conn.commit()
+        conn.close()
 
 def search_sql(table, key=""):
-    conn = sqlite3.connect("user_data.db", check_same_thread=False)
-    cur = conn.cursor()
-    sql_map = {
-        "book":"select * from book_record where book_name like ?",
-        "name":"select * from name_record where desc like ?",
-        "art":"select * from art_record where scene like ?",
-        "chat":"select * from chat_record where ask like ?"
-    }
-    cur.execute(sql_map[table], (f'%{key}%',))
-    res = cur.fetchall()
-    conn.close()
-    return res
+    with DB_LOCK:
+        conn = sqlite3.connect("user_data.db", check_same_thread=False)
+        cur = conn.cursor()
+        sql_map = {
+            "book":"select * from book_record where book_name like ?",
+            "name":"select * from name_record where desc like ?",
+            "art":"select * from art_record where scene like ?",
+            "chat":"select * from chat_record where ask like ?"
+        }
+        cur.execute(sql_map[table], (f'%{key}%',))
+        res = cur.fetchall()
+        conn.close()
+        return res
 
 def del_sql(table, rid):
-    conn = sqlite3.connect("user_data.db", check_same_thread=False)
-    cur = conn.cursor()
-    sql_map = {
-        "book":"delete from book_record where id=?",
-        "name":"delete from name_record where id=?",
-        "art":"delete from art_record where id=?",
-        "chat":"delete from chat_record where id=?"
-    }
-    cur.execute(sql_map[table], (rid,))
-    conn.commit()
-    conn.close()
+    with DB_LOCK:
+        conn = sqlite3.connect("user_data.db", check_same_thread=False)
+        cur = conn.cursor()
+        sql_map = {
+            "book":"delete from book_record where id=?",
+            "name":"delete from name_record where id=?",
+            "art":"delete from art_record where id=?",
+            "chat":"delete from chat_record where id=?"
+        }
+        cur.execute(sql_map[table], (rid,))
+        conn.commit()
+        conn.close()
 
 def check_user(uname,pwd):
-    conn=sqlite3.connect("user_data.db", check_same_thread=False)
-    cur=conn.cursor()
-    cur.execute("select role from user_info where username=? and password=?",(uname,pwd))
-    res=cur.fetchone()
-    conn.close()
-    return res
+    with DB_LOCK:
+        conn=sqlite3.connect("user_data.db", check_same_thread=False)
+        cur=conn.cursor()
+        cur.execute("select role from user_info where username=? and password=?",(uname,pwd))
+        res=cur.fetchone()
+        conn.close()
+        return res
 
-# 新增：查询用户明文密码，用于个人中心展示
+# 查询用户明文密码（个人中心使用）
 def get_user_pwd(uname):
-    conn=sqlite3.connect("user_data.db", check_same_thread=False)
-    cur=conn.cursor()
-    cur.execute("select password from user_info where username=?",(uname,))
-    res=cur.fetchone()
-    conn.close()
-    return res[0] if res else ""
+    with DB_LOCK:
+        conn=sqlite3.connect("user_data.db", check_same_thread=False)
+        cur=conn.cursor()
+        cur.execute("select password from user_info where username=?",(uname,))
+        res=cur.fetchone()
+        conn.close()
+        return res[0] if res else ""
 
 def reset_pwd(uname,new_pwd):
-    conn=sqlite3.connect("user_data.db", check_same_thread=False)
-    cur=conn.cursor()
-    cur.execute("update user_info set password=? where username=?",(new_pwd,uname))
-    conn.commit()
-    conn.close()
+    with DB_LOCK:
+        conn=sqlite3.connect("user_data.db", check_same_thread=False)
+        cur=conn.cursor()
+        cur.execute("update user_info set password=? where username=?",(new_pwd,uname))
+        conn.commit()
+        conn.close()
 
 def add_new_user(uname,pwd,role):
-    now=datetime.now().strftime("%Y-%m-%d %H:%M")
-    conn=sqlite3.connect("user_data.db", check_same_thread=False)
-    cur=conn.cursor()
-    try:
-        cur.execute("INSERT INTO user_info(username,password,role,create_time) VALUES(?,?,?,?)",(uname,pwd,role,now))
-        conn.commit()
-        return True
-    except:
-        return False
-    conn.close()
+    with DB_LOCK:
+        now=datetime.now().strftime("%Y-%m-%d %H:%M")
+        conn=sqlite3.connect("user_data.db", check_same_thread=False)
+        cur=conn.cursor()
+        try:
+            cur.execute("INSERT INTO user_info(username,password,role,create_time) VALUES(?,?,?,?)",(uname,pwd,role,now))
+            conn.commit()
+            return True
+        except:
+            return False
+        conn.close()
 
 def get_all_user():
-    conn=sqlite3.connect("user_data.db", check_same_thread=False)
-    cur=conn.cursor()
-    cur.execute("select id,username,role,create_time from user_info")
-    data=cur.fetchall()
-    conn.close()
-    return data
+    with DB_LOCK:
+        conn=sqlite3.connect("user_data.db", check_same_thread=False)
+        cur=conn.cursor()
+        cur.execute("select id,username,role,create_time from user_info")
+        data=cur.fetchall()
+        conn.close()
+        return data
 
 def delete_user_by_id(uid,uname):
     if uname == "admin":
         return False,"超级管理员admin禁止删除"
-    conn=sqlite3.connect("user_data.db", check_same_thread=False)
-    cur=conn.cursor()
-    cur.execute("DELETE FROM user_info WHERE id=?",(uid,))
-    conn.commit()
-    conn.close()
-    return True,"删除成功"
+    with DB_LOCK:
+        conn=sqlite3.connect("user_data.db", check_same_thread=False)
+        cur=conn.cursor()
+        cur.execute("DELETE FROM user_info WHERE id=?",(uid,))
+        conn.commit()
+        conn.close()
+        return True,"删除成功"
 
 # 初始化数据库
 if not st.session_state.db_inited:
     init_db()
     st.session_state.db_inited = True
 
-# AI客户端初始化
+# AI客户端全局单例（每个服务实例仅加载一次模型）
 if "ai_client" not in st.session_state:
     try:
         API_KEY = st.secrets["API_KEY"]
@@ -149,7 +167,7 @@ if "ai_client" not in st.session_state:
     st.session_state.ai_client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
 client = st.session_state.ai_client
 
-# ========== 页面全局配置 + 竹子古风CSS ==========
+# ========== 页面全局配置 + 竹子古风CSS样式 ==========
 st.set_page_config(page_title="小政AI助手",page_icon="🎋",layout="wide",initial_sidebar_state="expanded")
 
 if "css_done" not in st.session_state:
@@ -159,9 +177,9 @@ if "css_done" not in st.session_state:
     *{font-family:"Microsoft Yahei", "KaiTi", sans-serif !important; margin:0; padding:0;}
     #MainMenu, footer, header, [data-testid="stToolbar"] {display:none !important; height:0;}
 
-    /* ========== 浅色模式：竹子背景 + 书香绿调 ========== */
+    /* 浅色模式：竹子背景 + 书香绿调 */
     .stApp {
-        background-image: url('https://img0.baidu.com/it/u=1976256132,2878796139&fm=253&fmt=auto&app=138&f=JPEG?w=800&h=500');
+        background-image: url('https://img0.baidu.com/it/u=1976256132,2878796132&fm=253&fmt=auto&app=138&f=JPEG?w=800&h=500');
         background-size: cover;
         background-attachment: fixed;
         background-position: center;
@@ -169,7 +187,7 @@ if "css_done" not in st.session_state:
         background-blend-mode: overlay;
     }
 
-    /* 侧边栏 - 竹纹古风样式 */
+    /* 侧边栏竹纹样式 */
     [data-testid="stSidebar"] {
         min-width:220px !important; max-width:240px !important;
         padding:20px 15px;
@@ -185,7 +203,7 @@ if "css_done" not in st.session_state:
     [data-testid="stSidebar"] .stButton button:hover {background:#d8e9d0;}
     [data-testid="stSidebar"] .stButton button[kind="primary"] {background:#8fb882; color:#ffffff; border-color:#7ca56f;}
 
-    /* 功能卡片 - 竹色边框 */
+    /* 功能卡片样式 */
     .func-card {
         background:rgba(255,255,255,0.85);
         border:1px solid #a8c9a0;
@@ -193,13 +211,13 @@ if "css_done" not in st.session_state:
         box-shadow: 0 2px 8px rgba(120, 165, 110, 0.15);
     }
 
-    /* 输入框、下拉框 竹系配色 */
+    /* 输入框、下拉框样式 */
     .stTextInput input, .stTextArea textarea, .stSelectbox > div > div {
         border-radius:8px; border:1px solid #b8d4af;
         padding:8px 12px; background:#ffffff90;
     }
 
-    /* ========== 聊天气泡 ========== */
+    /* 聊天气泡 豆包风格 */
     .stChatMessage[data-testid="assistant"] {justify-content:flex-start; margin:8px 0;}
     .stChatMessage[data-testid="assistant"] .stMarkdown {
         background:rgba(247, 248, 250, 0.92); color:#1d2129;
@@ -214,17 +232,17 @@ if "css_done" not in st.session_state:
         padding:12px 16px; max-width:85%; line-height:1.6;
     }
 
-    /* 底部聊天输入框 */
+    /* 底部聊天输入框固定 */
     .stChatInput {position:fixed; bottom:20px; left:250px; right:30px; z-index:999;}
     .stChatInput > div > div > div {
         border-radius:24px; padding:6px 16px;
         border:1px solid #a8c9a0; background:#ffffff95;
     }
 
-    /* ========== 深色模式：深色竹影风格 ========== */
+    /* 深色模式 竹影风格 */
     @media (prefers-color-scheme: dark){
         .stApp {
-            background-image: url('https://img0.baidu.com/it/u=1976256132,2878796139&fm=253&fmt=auto&app=138&f=JPEG?w=800&h=500');
+            background-image: url('https://img0.baidu.com/it/u=1976256132,2878796132&fm=253&fmt=auto&app=138&f=JPEG?w=800&h=500');
             background-color: #1a2019;
             background-blend-mode: multiply;
         }
@@ -244,7 +262,8 @@ if "css_done" not in st.session_state:
     """,unsafe_allow_html=True)
     st.session_state.css_done = True
 
-# ========== 初始化会话状态 ==========
+# ========== 初始化单会话状态（关键：每个设备/浏览器独立会话） ==========
+# Streamlit 自动为每个连接分配独立 session_state，天然隔离多用户状态
 init_keys = [
     "login","user_name","user_role","pop_login","pop_reg",
     "pop_reset","pop_adduser","show_userlist","current_func",
@@ -257,28 +276,28 @@ for k in init_keys:
         elif k in ("user_name","user_role","current_func"):
             st.session_state[k]=""
         elif k=="chat_history":
-            st.session_state[k]=[]
+            st.session_state[k]=[]  # 单会话独立聊天记录
         elif k=="show_pwd":
             st.session_state[k]=False
         else:
             st.session_state[k]=False
 
-# ========== 未登录页面：登录注册按钮竖排（修改点1） ==========
+# ========== 未登录页面（登录/注册按钮竖排，多设备通用） ==========
 if not st.session_state.login:
     st.title("🎋 小政AI助手")
     st.warning("⚠️ 请先登录账号后使用全部功能，暂无账号可点击注册！")
-    # 改为竖排上下两个按钮，不再分两列
+    # 竖排按钮
     if st.button("🔐 去登录",type="primary",use_container_width=True):
         st.session_state.pop_login=True
     st.divider()
     if st.button("📝 新用户注册",type="secondary",use_container_width=True):
         st.session_state.pop_reg=True
 
+    # 登录弹窗
     if st.session_state.pop_login:
         with st.expander("🔐 用户登录",expanded=True):
             u=st.text_input("账号",key="lu")
             p=st.text_input("密码",type="password",key="lp")
-            # 登录弹窗按钮也竖排
             if st.button("登录",type="primary",key="loginok",use_container_width=True):
                 res=check_user(u,p)
                 if res:
@@ -293,6 +312,7 @@ if not st.session_state.login:
             if st.button("关闭",key="logclose",use_container_width=True):
                 st.session_state.pop_login=False
                 st.rerun()
+    # 注册弹窗
     if st.session_state.pop_reg:
         with st.expander("📝 新用户注册(默认普通用户)",expanded=True):
             ru=st.text_input("用户名",key="ru")
@@ -310,13 +330,13 @@ if not st.session_state.login:
                 st.rerun()
     st.stop()
 
-# ========== 已登录：左侧侧边栏导航（新增个人中心菜单） ==========
+# ========== 已登录：左侧侧边栏导航 ==========
 with st.sidebar:
     st.markdown(f"### 🎋 {st.session_state.user_name}")
     st.caption(f"权限：{st.session_state.user_role}")
     st.divider()
 
-    # 新增个人中心到菜单最上方
+    # 功能菜单
     base_menu=["👤 个人中心","💬 对话","📖 书摘","🏷️ 起名","📸 朋友圈文案"]
     if st.session_state.user_role=="manager":
         nav_items=base_menu+["📂 我的存档"]
@@ -338,8 +358,10 @@ with st.sidebar:
             st.session_state.pop_adduser=True
         if st.button("👥 用户列表",use_container_width=True):
             st.session_state.show_userlist=True
-    # 退出登录
+
+    # 退出登录：清空当前会话聊天记录，不影响其他设备
     if st.button("🚪 退出登录",use_container_width=True):
+        st.session_state.chat_history = []
         st.session_state.login=False
         st.session_state.user_name=""
         st.session_state.user_role=""
@@ -349,7 +371,7 @@ with st.sidebar:
 # ========== 右侧主内容区 ==========
 func=st.session_state.current_func
 
-# 1. 新增【个人中心】页面（修改点2）
+# 1. 个人中心（查看账号、密码、修改密码）
 if func=="👤 个人中心":
     st.markdown('<div class="func-card"><h3>👤 个人账户信息</h3></div>',unsafe_allow_html=True)
     uname = st.session_state.user_name
@@ -359,7 +381,6 @@ if func=="👤 个人中心":
     st.write(f"账户名称：{uname}")
     st.write(f"账户权限：{st.session_state.user_role}")
 
-    # 密码显示/隐藏切换
     show_pwd = st.checkbox("显示完整密码", value=st.session_state.show_pwd)
     st.session_state.show_pwd = show_pwd
     if show_pwd:
@@ -375,9 +396,10 @@ if func=="👤 个人中心":
         st.success("密码修改成功，请牢记新密码！")
         st.rerun()
 
-# 2. 对话模块
+# 2. 智能对话（单会话独立聊天记录，多设备互不干扰）
 elif func=="💬 对话":
     st.subheader("💬 智能对话")
+    # 渲染当前会话专属聊天记录
     for i in st.session_state.chat_history:
         with st.chat_message(i["role"]):
             st.markdown(i["content"])
@@ -391,9 +413,10 @@ elif func=="💬 对话":
         st.session_state.chat_history.append({"role":"assistant","content":ans})
         with st.chat_message("assistant"):
             st.markdown(ans)
+        # 聊天记录存入公共数据库（管理员存档可查看）
         add_sql("chat",[msg,ans])
 
-# 3. 书摘模块
+# 3. 书摘功能
 elif func=="📖 书摘":
     st.markdown('<div class="func-card"><h3>📖 书籍介绍 & 同类推荐</h3></div>',unsafe_allow_html=True)
     book_name = st.text_input("书名")
@@ -405,7 +428,7 @@ elif func=="📖 书摘":
             st.markdown(ans)
             add_sql("book", [book_name, author, ans])
 
-# 4. 起名模块
+# 4. AI起名功能
 elif func=="🏷️ 起名":
     st.markdown('<div class="func-card"><h3>🏷️ AI起名</h3></div>',unsafe_allow_html=True)
     typ=st.selectbox("类型",["品牌店铺","宠物名字","网名笔名","小说角色"])
@@ -432,7 +455,7 @@ elif func=="📸 朋友圈文案":
             st.markdown(txt)
             add_sql("art",[sty,scene,txt])
 
-# 6. 存档（已修复KeyError）
+# 6. 管理员存档页面（已修复KeyError）
 elif func=="📂 我的存档":
     if st.session_state.user_role=="manager":
         st.markdown('<div class="func-card"><h3>📂 全量内容存档</h3></div>',unsafe_allow_html=True)
