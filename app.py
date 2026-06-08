@@ -413,16 +413,16 @@ elif func=="📂 我的存档":
                 if st.button("删除",key=f'n{r[0]}'):del_sql("name",r[0]);st.rerun()
         with t3:
             kw=st.text_input("搜索场景")
-            for r in search_sql("art_record",kw):
+            for r in search_sql("art",kw):
                 st.write(f"📅{r[4]}｜{r[1]}｜{r[2]}")
                 st.text(r[3])
-                if st.button("删除",key=f'a{r[0]}'):del_sql("art_record",r[0]);st.rerun()
+                if st.button("删除",key=f'a{r[0]}'):del_sql("art",r[0]);st.rerun()
         with t4:
             kw=st.text_input("搜索提问")
-            for r in search_sql("chat_record",kw):
+            for r in search_sql("chat",kw):
                 st.write(f"📅{r[3]} 用户：{r[1]}")
                 st.text(f"AI：{r[2]}")
-                if st.button("删除",key=f'c{r[0]}'):del_sql("chat_record",r[0]);st.rerun()
+                if st.button("删除",key=f'c{r[0]}'):del_sql("chat",r[0]);st.rerun()
     else:
         st.warning("仅管理员可查看存档")
 
