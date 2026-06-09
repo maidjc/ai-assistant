@@ -287,7 +287,7 @@ if not st.session_state.login:
     st.markdown(
         """
         <div style="padding-top: 4vh; padding-left: 2vw; padding-right: 2vw;">
-            <h1 style="color:#f0e9d2; margin:0 0 16px 0;">📜 小政AI助手</h1>
+            <h1 style="color:#000000; margin:0 0 16px 0;">📜 小政AI助手</h1>
             <div style="background:rgba(110,120,60,0.65); border-radius:10px; padding:14px 18px; margin-bottom:22px;">
                 <p style="color:#f8f3c8; margin:0; font-size:16px;">⚠️ 请先登录账号后使用全部功能，暂无账号可点击注册！</p>
             </div>
