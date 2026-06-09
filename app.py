@@ -281,27 +281,30 @@ for k in init_keys:
             st.session_state[k]=False
         else:
             st.session_state[k]=False
-
+            
 if not st.session_state.login:
-    # 紧凑居中卡片，取消超大垂直高度，杜绝滚动条
+    # 顶部少量留白，页面不会产生滚动条
     st.markdown(
         """
-        <div style="display: grid; place-items: center; padding-top:8vh;">
-            <div style="width: 400px; padding: 36px; background: rgba(255,255,255,0.9); border:1px solid #a8c9a0; border-radius:14px; text-align:center;">
-                <h2 style="color:#365930;margin:0 0 8px 0;">🎋 小政AI助手</h2>
-                <p style="color:#557250;margin:0 0 24px 0;">请登录后使用全部功能</p>
+        <div style="padding-top: 4vh; padding-left: 2vw; padding-right: 2vw;">
+            <h1 style="color:#f0e9d2; margin:0 0 16px 0;">📜 小政AI助手</h1>
+            <div style="background:rgba(110,120,60,0.65); border-radius:10px; padding:14px 18px; margin-bottom:22px;">
+                <p style="color:#f8f3c8; margin:0; font-size:16px;">⚠️ 请先登录账号后使用全部功能，暂无账号可点击注册！</p>
+            </div>
         """,
         unsafe_allow_html=True
     )
 
-    # 竖排按钮
-    if st.button("🔐 去登录", type="primary", use_container_width=True):
-        st.session_state.pop_login = True
-    st.divider()
-    if st.button("📝 新用户注册", type="secondary", use_container_width=True):
-        st.session_state.pop_reg = True
+    # 左右并排按钮，和截图布局一致
+    col1, col2 = st.columns([1,1])
+    with col1:
+        if st.button("🔐 去登录", use_container_width=True):
+            st.session_state.pop_login = True
+    with col2:
+        if st.button("📃 新用户注册", type="secondary", use_container_width=True):
+            st.session_state.pop_reg = True
 
-    st.markdown("</div></div>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
     # 登录弹窗
     if st.session_state.pop_login:
