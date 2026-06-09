@@ -283,18 +283,18 @@ for k in init_keys:
             st.session_state[k]=False
 
 if not st.session_state.login:
-    # 居中卡片容器，极简内嵌样式
+    # 紧凑居中卡片，取消超大垂直高度，杜绝滚动条
     st.markdown(
         """
-        <div style="display: grid; place-items: center; min-height: 75vh;">
+        <div style="display: grid; place-items: center; padding-top:8vh;">
             <div style="width: 400px; padding: 36px; background: rgba(255,255,255,0.9); border:1px solid #a8c9a0; border-radius:14px; text-align:center;">
-                <h2 style="color:#365930">🎋 小政AI助手</h2>
-                <p style="color:#557250">请登录后使用全部功能</p>
+                <h2 style="color:#365930;margin:0 0 8px 0;">🎋 小政AI助手</h2>
+                <p style="color:#557250;margin:0 0 24px 0;">请登录后使用全部功能</p>
         """,
         unsafe_allow_html=True
     )
 
-    # 竖排按钮，极简布局，间距统一
+    # 竖排按钮
     if st.button("🔐 去登录", type="primary", use_container_width=True):
         st.session_state.pop_login = True
     st.divider()
