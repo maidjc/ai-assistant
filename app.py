@@ -282,70 +282,61 @@ for k in init_keys:
         else:
             st.session_state[k]=False
 
-# ========== 未登录页面（全新优化居中布局） ==========
 if not st.session_state.login:
-    # 页面居中容器卡片
-    st.markdown("""
-    <div style="display:flex;justify-content:center;align-items:center;min-height:70vh;">
-        <div style="width:420px;background:rgba(255,255,255,0.88);padding:40px 32px;border-radius:16px;border:1px solid #a8c9a0;box-shadow:0 4px 12px rgba(130,175,120,0.18);text-align:center;">
-            <h1 style="color:#365930;margin:0 0 10px 0;font-size:28px;">🎋 小政AI助手</h1>
-            <p style="color:#557250;margin-bottom:30px;font-size:15px;">多设备通用古风AI工具平台</p>
-            <div style="color:#c44333;background:rgba(252,237,237,0.7);padding:12px;border-radius:8px;margin-bottom:35px;text-align:left;font-size:14px;">
-                ⚠️ 请先登录账号后使用全部功能<br/>暂无账号可点击下方注册
-            </div>
-            <div style="margin-bottom:16px;">
-    """,unsafe_allow_html=True)
+    # 居中卡片容器，极简内嵌样式
+    st.markdown(
+        """
+        <div style="display: grid; place-items: center; min-height: 75vh;">
+            <div style="width: 400px; padding: 36px; background: rgba(255,255,255,0.9); border:1px solid #a8c9a0; border-radius:14px; text-align:center;">
+                <h2 style="color:#365930">🎋 小政AI助手</h2>
+                <p style="color:#557250">请登录后使用全部功能</p>
+        """,
+        unsafe_allow_html=True
+    )
 
-    # 竖排按钮，全屏宽度，大尺寸
-    btn_login = st.button("🔐 去登录", type="primary", use_container_width=True)
-    st.markdown("<div style='height:14px;'></div>",unsafe_allow_html=True)
-    btn_reg = st.button("📝 新用户注册", type="secondary", use_container_width=True)
+    # 竖排按钮，极简布局，间距统一
+    if st.button("🔐 去登录", type="primary", use_container_width=True):
+        st.session_state.pop_login = True
+    st.divider()
+    if st.button("📝 新用户注册", type="secondary", use_container_width=True):
+        st.session_state.pop_reg = True
 
-    st.markdown("""
-            </div>
-        </div>
-    </div>
-    """,unsafe_allow_html=True)
+    st.markdown("</div></div>", unsafe_allow_html=True)
 
     # 登录弹窗
-    if btn_login or st.session_state.pop_login:
-        st.session_state.pop_login = True
+    if st.session_state.pop_login:
         with st.expander("🔐 用户登录", expanded=True):
-            u=st.text_input("账号",key="lu")
-            p=st.text_input("密码",type="password",key="lp")
-            st.markdown("<div style='height:10px;'></div>",unsafe_allow_html=True)
-            if st.button("登录",type="primary",key="loginok",use_container_width=True):
-                res=check_user(u,p)
+            u = st.text_input("账号", key="lu")
+            p = st.text_input("密码", type="password", key="lp")
+            if st.button("登录", type="primary", use_container_width=True):
+                res = check_user(u, p)
                 if res:
-                    st.session_state.login=True
-                    st.session_state.user_name=u
-                    st.session_state.user_role=res[0]
-                    st.session_state.pop_login=False
+                    st.session_state.login = True
+                    st.session_state.user_name = u
+                    st.session_state.user_role = res[0]
+                    st.session_state.pop_login = False
                     st.rerun()
-                else:
-                    st.error("账号或密码错误")
-            st.markdown("<div style='height:8px;'></div>",unsafe_allow_html=True)
-            if st.button("关闭",key="logclose",use_container_width=True):
-                st.session_state.pop_login=False
+                st.error("账号或密码错误")
+            if st.button("关闭", use_container_width=True):
+                st.session_state.pop_login = False
                 st.rerun()
+
     # 注册弹窗
-    if btn_reg or st.session_state.pop_reg:
-        st.session_state.pop_reg = True
-        with st.expander("📝 新用户注册(默认普通用户)",expanded=True):
-            ru=st.text_input("用户名",key="ru")
-            rp=st.text_input("密码",type="password",key="rp")
-            st.markdown("<div style='height:10px;'></div>",unsafe_allow_html=True)
-            if st.button("完成注册",type="primary",key="regok",use_container_width=True) and ru and rp:
-                if add_new_user(ru,rp,"user"):
-                    st.success("注册成功！前往登录")
-                    st.session_state.pop_reg=False
+    if st.session_state.pop_reg:
+        with st.expander("📝 新用户注册", expanded=True):
+            ru = st.text_input("用户名", key="ru")
+            rp = st.text_input("密码", type="password", key="rp")
+            if st.button("完成注册", type="primary", use_container_width=True) and ru and rp:
+                if add_new_user(ru, rp, "user"):
+                    st.success("注册成功，请登录")
+                    st.session_state.pop_reg = False
                     st.rerun()
                 else:
-                    st.error("用户名已被占用")
-            st.markdown("<div style='height:8px;'></div>",unsafe_allow_html=True)
-            if st.button("关闭",key="regclose",use_container_width=True):
-                st.session_state.pop_reg=False
+                    st.error("用户名已占用")
+            if st.button("关闭", use_container_width=True):
+                st.session_state.pop_reg = False
                 st.rerun()
+
     st.stop()
 # ========== 已登录：左侧侧边栏导航 ==========
 with st.sidebar:
